@@ -149,6 +149,9 @@ const STYLES = `
   .src-link::after { content: ' ↗'; font-size: 0.9em; opacity: 0; }
   .src-link:hover { color: #7c3aed; text-decoration: underline; }
   .src-link:hover::after { opacity: 1; }
+  .panel-title .src-link { color: inherit; }
+  .token-chain .src-link { color: inherit; }
+  .conflict .src-link { color: inherit; font-family: inherit; }
 
   .crumbs { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
   .crumb-wrap { position: relative; display: inline-flex; }
@@ -200,7 +203,8 @@ const STYLES = `
 
   .panel-section h4 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #667085; }
   .classes { display: flex; flex-wrap: wrap; gap: 4px; }
-  .class-chip { font-family: ui-monospace, Menlo, monospace; font-size: 11px; background: #f2f4f7; border: 1px solid #e2e5ec; border-radius: 4px; padding: 1px 6px; }
+  .class-chip { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; background: #f2f4f7; border: 1px solid #e2e5ec; border-radius: 4px; padding: 1px 6px; }
+  .class-chip.src-link:hover { border-color: #d6bbfb; background: #f9f5ff; }
   .classes-empty { color: #98a2b3; }
 
   .actions { display: flex; gap: 8px; margin-top: 14px; }
@@ -216,7 +220,7 @@ const STYLES = `
   .rule-loc:hover { color: #7c3aed; text-decoration: underline; }
 
   .decl { margin: 3px 0; }
-  .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; }
+  .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; text-decoration: none; }
   .decl-note { margin-left: 6px; font-size: 11px; color: #98a2b3; font-style: italic; }
   .decl--overridden .decl-code { text-decoration: line-through; color: #98a2b3; }
   .decl--overridden .decl-note { display: none; }
@@ -481,8 +485,11 @@ export function initDevlensOverlay(config) {
       return;
     }
     const { file, line, component } = sourceInfo(selectedEl);
-    panelTitle.textContent = `<${component}>`;
-    panelLoc.textContent = `${file}:${line}`;
+    // Rule A: the title and its location both open the defining file:line.
+    const titleLink = srcLink(file, line);
+    titleLink.textContent = `<${component}>`;
+    panelTitle.replaceChildren(titleLink);
+    panelLoc.replaceChildren(srcLink(file, line));
     vscodeLink.href = `vscode://file${projectRoot}/${file}:${line}`;
 
     const crumbs = componentChain(selectedEl);
@@ -568,6 +575,15 @@ export function initDevlensOverlay(config) {
     return link;
   }
 
+  function splitLoc(loc) {
+    const i = loc.lastIndexOf(':');
+    return [loc.slice(0, i), loc.slice(i + 1)];
+  }
+
+  function escapeRegex(text) {
+    return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   // page/component/element chip; hovering it teaches the word.
   function kindBadge(kind) {
     const chip = span(`crumb-kind crumb-kind--${kind}`, kind);
@@ -631,17 +647,28 @@ export function initDevlensOverlay(config) {
     row.className = 'token-chain';
     const token = tokenInfo(name, index, el, sheetOrder);
 
-    row.append(span('token-main', `${token.name} → ${token.effective || '(unresolved)'}`));
-    if (token.definedIn) row.append(span('token-loc', ` · defined in ${token.definedIn}`));
+    const chainText = `${token.name} → ${token.effective || '(unresolved)'}`;
+    if (token.definedIn) {
+      // Rule A: the token itself and its definition site both open the editor.
+      const [file, line] = splitLoc(token.definedIn);
+      const main = srcLink(file, line);
+      main.classList.add('token-main');
+      main.textContent = chainText;
+      row.append(main, span('token-loc', ' · defined in '), srcLink(file, line));
+    } else {
+      row.append(span('token-main', chainText));
+    }
+
     if (token.conflicts.length) {
-      row.append(
-        span(
-          'conflict',
-          `⚠ conflict — also ${token.conflicts
-            .map((conflict) => `${conflict.value} in ${conflict.location}`)
-            .join(', ')} (overridden by load order)`,
-        ),
-      );
+      const conflictEl = span('conflict', '⚠ conflict — also ');
+      token.conflicts.forEach((conflict, i) => {
+        if (i) conflictEl.append(', ');
+        conflictEl.append(`${conflict.value} in `);
+        const [file, line] = splitLoc(conflict.location);
+        conflictEl.append(srcLink(file, line));
+      });
+      conflictEl.append(' (overridden by load order)');
+      row.append(conflictEl);
     }
     return row;
   }
@@ -655,18 +682,17 @@ export function initDevlensOverlay(config) {
     const sel = document.createElement('code');
     sel.className = 'rule-sel';
     sel.textContent = rule.selector;
-    const loc = document.createElement('a');
-    loc.className = 'rule-loc';
-    loc.textContent = `${rule.file}:${rule.line}`;
-    loc.href = `vscode://file${projectRoot}/${rule.file}:${rule.line}`;
+    const loc = srcLink(rule.file, rule.line);
+    loc.classList.add('rule-loc');
     head.append(sel, loc);
     card.append(head);
 
     for (const decl of rule.declarations) {
       const row = document.createElement('div');
       row.className = decl.overridden ? 'decl decl--overridden' : 'decl';
-      const code = document.createElement('code');
-      code.className = 'decl-code';
+      // Rule A: each declaration opens the editor at its own line.
+      const code = srcLink(rule.file, decl.line);
+      code.classList.add('decl-code');
       code.textContent = `${decl.prop}: ${decl.value}${decl.important ? ' !important' : ''};`;
       row.append(code);
       const note = explainDeclaration(decl.prop, decl.value);
@@ -702,6 +728,34 @@ export function initDevlensOverlay(config) {
     return { el, matched, index, sheetOrder };
   }
 
+  // Rule A for class names: each chip links to the winning rule that targets
+  // that class (data.matched is sorted winning-first). Classes nothing in
+  // src/ targets stay plain chips.
+  function renderClasses(el, data) {
+    classesBox.replaceChildren();
+    if (!el.classList.length) {
+      classesBox.append(span('classes-empty', '(no classes)'));
+      return;
+    }
+    for (const name of el.classList) {
+      const pattern = new RegExp(`\\.${escapeRegex(name)}(?![\\w-])`);
+      const rule = data?.matched.find((r) => pattern.test(r.selector));
+      if (rule) {
+        const chip = srcLink(rule.file, rule.line);
+        chip.classList.add('class-chip');
+        chip.textContent = name;
+        chip.title = `${rule.selector} — ${rule.file}:${rule.line}`;
+        classesBox.append(chip);
+      } else {
+        const chip = document.createElement('code');
+        chip.className = 'class-chip';
+        chip.textContent = name;
+        chip.title = 'No rule in src/ targets this class';
+        classesBox.append(chip);
+      }
+    }
+  }
+
   async function renderStyles(el) {
     stylesBox.replaceChildren(span('styles-empty', 'Resolving…'));
     let data;
@@ -713,6 +767,8 @@ export function initDevlensOverlay(config) {
     }
     if (el !== selectedEl) return; // selection changed while fetching
     lastStyles = data;
+
+    renderClasses(el, data);
 
     stylesBox.replaceChildren();
     if (!data.matched.length) {
