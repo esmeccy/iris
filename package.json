@@ -1,0 +1,17 @@
+{
+  "name": "devlens",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "demo"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace devlens-demo",
+    "build": "npm run build --workspace devlens-demo",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

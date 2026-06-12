@@ -1,0 +1,10 @@
+/* Deliberately redefines --color-primary with a different value than
+   global.css — the token-conflict test scenario for Step 3. This file is
+   imported last in main.jsx, so this value wins by load order. */
+:root {
+  --color-primary: #d946ef;
+}
+
+.legacy-accent {
+  border: 1px dashed var(--color-primary);
+}

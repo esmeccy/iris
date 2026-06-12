@@ -1,0 +1,14 @@
+{
+  "name": "devlens-inspector",
+  "version": "0.1.0",
+  "description": "Dev-mode element inspector for Vite + React: tags JSX with source locations.",
+  "type": "module",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@babel/parser": "^7.26.0",
+    "magic-string": "^0.30.17"
+  }
+}
