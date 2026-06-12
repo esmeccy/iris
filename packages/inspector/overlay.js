@@ -3,7 +3,12 @@
 // with the project's absolute path. All overlay UI lives inside one Shadow
 // DOM host so page styles and overlay styles never touch each other.
 
-import { explainDeclaration, extractVarRefs, resolveCascade } from '/@devlens/resolve';
+import {
+  explainDeclaration,
+  extractVarRefs,
+  formatAiContext,
+  resolveCascade,
+} from '/@devlens/resolve';
 
 const SOURCE_ATTR = 'data-devlens-source';
 const COMPONENT_ATTR = 'data-devlens-component';
@@ -89,8 +94,11 @@ const STYLES = `
   .class-chip { font-family: ui-monospace, Menlo, monospace; font-size: 11px; background: #f2f4f7; border: 1px solid #e2e5ec; border-radius: 4px; padding: 1px 6px; }
   .classes-empty { color: #98a2b3; }
 
-  .vscode { display: inline-block; margin-top: 14px; padding: 6px 12px; border-radius: 6px; background: #1c2433; color: #fff; text-decoration: none; font-size: 12px; }
+  .actions { display: flex; gap: 8px; margin-top: 14px; }
+  .vscode { display: inline-block; padding: 6px 12px; border-radius: 6px; background: #1c2433; color: #fff; text-decoration: none; font-size: 12px; }
   .vscode:hover { background: #323d52; }
+  .copy-context { padding: 6px 12px; border-radius: 6px; border: 1px solid #1c2433; background: #fff; color: #1c2433; font: 12px system-ui, sans-serif; cursor: pointer; }
+  .copy-context:hover { background: #eef1f6; }
 
   .rule { margin-bottom: 10px; padding: 8px 10px; border: 1px solid #e2e5ec; border-radius: 6px; }
   .rule-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
@@ -147,7 +155,10 @@ export function initDevlensOverlay(config) {
         <h4>Styles</h4>
         <div class="styles"></div>
       </section>
-      <a class="vscode" href="#">Open in VS Code</a>
+      <div class="actions">
+        <a class="vscode" href="#">Open in VS Code</a>
+        <button class="copy-context" type="button">Copy AI context</button>
+      </div>
     </aside>
   `;
   document.body.appendChild(host);
@@ -163,6 +174,9 @@ export function initDevlensOverlay(config) {
   const classesBox = shadow.querySelector('.classes');
   const stylesBox = shadow.querySelector('.styles');
   const vscodeLink = shadow.querySelector('.vscode');
+  const copyButton = shadow.querySelector('.copy-context');
+
+  copyButton.addEventListener('click', onCopyContext);
 
   shadow.querySelector('.panel-close').addEventListener('click', () => {
     selectedEl = null;
@@ -293,27 +307,36 @@ export function initDevlensOverlay(config) {
     return order;
   }
 
-  function tokenChainRow(name, index, el, sheetOrder) {
-    const row = document.createElement('div');
-    row.className = 'token-chain';
-
+  function tokenInfo(name, index, el, sheetOrder) {
     const defs = (index.tokens[name] || [])
       .map((def) => ({ ...def, order: sheetOrder.get(def.file) ?? 0 }))
       .sort((a, b) => a.order - b.order || a.line - b.line);
     const winner = defs[defs.length - 1];
-    const effective =
-      getComputedStyle(el).getPropertyValue(name).trim() || (winner ? winner.value : '');
+    return {
+      name,
+      effective:
+        getComputedStyle(el).getPropertyValue(name).trim() || (winner ? winner.value : ''),
+      definedIn: winner ? `${winner.file}:${winner.line}` : '',
+      conflicts: defs
+        .slice(0, -1)
+        .filter((def) => def.value !== winner.value)
+        .map((def) => ({ value: def.value, location: `${def.file}:${def.line}` })),
+    };
+  }
 
-    row.append(span('token-main', `${name} → ${effective || '(unresolved)'}`));
-    if (winner) row.append(span('token-loc', ` · defined in ${winner.file}:${winner.line}`));
+  function tokenChainRow(name, index, el, sheetOrder) {
+    const row = document.createElement('div');
+    row.className = 'token-chain';
+    const token = tokenInfo(name, index, el, sheetOrder);
 
-    const losing = defs.slice(0, -1).filter((def) => def.value !== winner.value);
-    if (losing.length) {
+    row.append(span('token-main', `${token.name} → ${token.effective || '(unresolved)'}`));
+    if (token.definedIn) row.append(span('token-loc', ` · defined in ${token.definedIn}`));
+    if (token.conflicts.length) {
       row.append(
         span(
           'conflict',
-          `⚠ conflict — also ${losing
-            .map((def) => `${def.value} in ${def.file}:${def.line}`)
+          `⚠ conflict — also ${token.conflicts
+            .map((conflict) => `${conflict.value} in ${conflict.location}`)
             .join(', ')} (overridden by load order)`,
         ),
       );
@@ -356,17 +379,11 @@ export function initDevlensOverlay(config) {
     return card;
   }
 
-  async function renderStyles(el) {
-    stylesBox.replaceChildren(span('styles-empty', 'Resolving…'));
-    let index;
-    try {
-      index = await (await fetch(CSS_INDEX_URL)).json();
-    } catch {
-      stylesBox.replaceChildren(span('styles-empty', 'Could not load the CSS index.'));
-      return;
-    }
-    if (el !== selectedEl) return; // selection changed while fetching
+  let lastStyles = null; // { el, matched, index, sheetOrder } for the current selection
 
+  async function loadStyles(el) {
+    if (lastStyles && lastStyles.el === el) return lastStyles;
+    const index = await (await fetch(CSS_INDEX_URL)).json();
     const sheetOrder = getSheetOrder(index.fileOrder);
     const matched = index.rules
       .filter((rule) => {
@@ -380,17 +397,74 @@ export function initDevlensOverlay(config) {
 
     resolveCascade(matched);
     matched.sort((a, b) => b.sheetOrder - a.sheetOrder || b.line - a.line);
+    return { el, matched, index, sheetOrder };
+  }
+
+  async function renderStyles(el) {
+    stylesBox.replaceChildren(span('styles-empty', 'Resolving…'));
+    let data;
+    try {
+      data = await loadStyles(el);
+    } catch {
+      stylesBox.replaceChildren(span('styles-empty', 'Could not load the CSS index.'));
+      return;
+    }
+    if (el !== selectedEl) return; // selection changed while fetching
+    lastStyles = data;
 
     stylesBox.replaceChildren();
-    if (!matched.length) {
+    if (!data.matched.length) {
       stylesBox.append(span('styles-empty', 'No rules in src/ match this element.'));
       return;
     }
-    for (const rule of matched) stylesBox.append(ruleCard(rule, index, el, sheetOrder));
+    for (const rule of data.matched) {
+      stylesBox.append(ruleCard(rule, data.index, el, data.sheetOrder));
+    }
+  }
+
+  async function onCopyContext() {
+    const el = selectedEl;
+    if (!el) return;
+
+    let feedback = 'Copied ✓';
+    try {
+      const { matched, index, sheetOrder } = await loadStyles(el);
+      const { file, line, component } = sourceInfo(el);
+      const seen = new Set();
+      const tokens = [];
+      for (const rule of matched) {
+        for (const decl of rule.declarations) {
+          if (decl.overridden) continue;
+          for (const name of extractVarRefs(decl.value)) {
+            if (seen.has(name)) continue;
+            seen.add(name);
+            tokens.push(tokenInfo(name, index, el, sheetOrder));
+          }
+        }
+      }
+      const text = formatAiContext({
+        component,
+        source: `${file}:${line}`,
+        breadcrumb: componentChain(el).map((crumb) => crumb.name),
+        tag: el.tagName.toLowerCase(),
+        classes: [...el.classList],
+        rules: matched,
+        tokens,
+      });
+      await navigator.clipboard.writeText(text);
+    } catch {
+      feedback = 'Copy failed';
+    }
+    const original = copyButton.textContent;
+    copyButton.textContent = feedback;
+    setTimeout(() => {
+      copyButton.textContent = original;
+    }, 1500);
   }
 
   function select(el) {
     selectedEl = el;
+    lastStyles = null; // refetch so CSS edits are picked up on every selection
     renderPanel();
     scheduleRender();
   }

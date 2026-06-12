@@ -103,6 +103,22 @@ The plugin injects `<script type="module" src="/@devlens/overlay">` via `transfo
 5. Unit tests cover the CSS index builder and the cascade/specificity/annotation logic.
 6. `vite build` stays clean (no devlens traces).
 
+## Step 4: Handoff — Copy AI context (spec added 2026-06-11, derived from the Product Concept doc)
+
+### What to build
+
+- A **"Copy AI context"** button in the panel next to "Open in VS Code" (which has existed since Step 2). It generates a structured markdown description of the selected element and writes it to the clipboard (`navigator.clipboard`; localhost is a secure context).
+- The markdown contains: component name + source file:line, component breadcrumb, the DOM element with its classes, every matched CSS rule with file:line and declarations (cascade losers marked `[overridden]`), and a design-token section with effective values, definition sites, and conflict warnings.
+- The formatting logic (`formatAiContext`) lives in `resolve.js` as a pure function so it is unit-testable in node; the overlay only assembles the data (DOM reads) and calls it.
+- The text ends with a note that the tool is read-only and the AI should edit the referenced source files.
+
+### Acceptance criteria
+
+1. Clicking "Copy AI context" on a primary button puts markdown on the clipboard containing: `<Button>` + `src/components/Button.jsx:3`, the `App › Section › Card › Button` path, `.button--primary` and `.button` with file:line, `[overridden]` marks on losing declarations, and the `--color-primary` conflict (legacy.css wins, global.css flagged).
+2. The button gives visual feedback ("Copied ✓") and the pasted text is well-formed markdown.
+3. `formatAiContext` is unit-tested.
+4. `vite build` stays clean.
+
 ## Working agreements (added 2026-06-11)
 
 - **Ask before guessing.** When the brief is ambiguous, underspecified, or a choice is hard to reverse, Claude Code asks clarifying questions first instead of silently picking an interpretation.
