@@ -60,6 +60,61 @@ const STYLES = `
     font: 12px/1.4 system-ui, sans-serif;
   }
 
+  .keycap {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 11px;
+    background: #f3f2f2ff;
+    color: #5f6368;
+    font: 500 21px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    box-shadow:
+      0 0 0 5px #e4e5e7,
+      0 1px 1px rgba(0, 0, 0, 0.04),
+      0 6px 14px rgba(16, 24, 40, 0.10);
+    opacity: 0.8;
+    cursor: pointer;
+    pointer-events: auto;
+    user-select: none;
+    touch-action: none;
+    transition: opacity 0.15s ease;
+  }
+  .keycap:hover { opacity: 1; }
+  .keycap--dragging { opacity: 1; cursor: grabbing; }
+  .keycap--active {
+    background: #ffffffff;
+    color: #101010ff;
+    box-shadow:
+      0 0 0 5px #e4e5e7,
+      inset 0 1px 3px rgba(161, 161, 161, 0.1);
+    transform: translateY(1px);
+    opacity: 1;
+  }
+
+  .keycap-tip {
+    position: absolute;
+    top: 50%;
+    right: calc(100% + 14px);
+    transform: translate(6px, -50%);
+    padding: 4px 9px;
+    border-radius: 6px;
+    background: #1c2433;
+    color: #fff;
+    font: 400 11px/1.6 system-ui, sans-serif;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    pointer-events: none;
+  }
+  .keycap:hover .keycap-tip { opacity: 1; transform: translate(0, -50%); }
+  .keycap--tip-right .keycap-tip { right: auto; left: calc(100% + 14px); transform: translate(-6px, -50%); }
+  .keycap--tip-right:hover .keycap-tip { transform: translate(0, -50%); }
+  .keycap--dragging .keycap-tip { opacity: 0 !important; }
+
   .panel {
     position: fixed;
     top: 12px;
@@ -138,6 +193,7 @@ export function initDevlensOverlay(config) {
     <div class="box box--hover" hidden><span class="label"></span></div>
     <div class="box box--selected" hidden></div>
     <div class="badge" hidden>DevLens — hover to highlight, click to lock, Esc to exit</div>
+    <button class="keycap" type="button" aria-label="Toggle inspect mode">I<span class="keycap-tip">Inspect — ⌥ + I</span></button>
     <aside class="panel" hidden>
       <header class="panel-head">
         <div>
@@ -182,6 +238,103 @@ export function initDevlensOverlay(config) {
     selectedEl = null;
     renderPanel();
     scheduleRender();
+  });
+
+  // --- Keycap entry button: click toggles inspect mode, drag repositions ---
+
+  const keycap = shadow.querySelector('.keycap');
+  const keycapTip = shadow.querySelector('.keycap-tip');
+  const KEYCAP_POS_KEY = 'devlens-keycap-pos';
+  const KEYCAP_SIZE = 46;
+  const KEYCAP_MARGIN = 10; // keeps the 5px tray ring fully in view
+  const DRAG_THRESHOLD = 4; // px of movement that turns a click into a drag
+
+  function clampKeycapPos(x, y) {
+    return {
+      x: Math.min(Math.max(KEYCAP_MARGIN, x), window.innerWidth - KEYCAP_SIZE - KEYCAP_MARGIN),
+      y: Math.min(Math.max(KEYCAP_MARGIN, y), window.innerHeight - KEYCAP_SIZE - KEYCAP_MARGIN),
+    };
+  }
+
+  function applyKeycapPos(pos) {
+    keycap.style.left = `${pos.x}px`;
+    keycap.style.top = `${pos.y}px`;
+    keycap.style.right = 'auto';
+    // Near the left edge the slide-out tooltip would leave the viewport: flip it.
+    keycap.classList.toggle('keycap--tip-right', pos.x < 140);
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEYCAP_POS_KEY));
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      applyKeycapPos(clampKeycapPos(saved.x, saved.y));
+    }
+  } catch {
+    /* corrupt/blocked storage: keep the default top-right position */
+  }
+
+  let keycapDrag = null;
+  let suppressKeycapClick = false;
+
+  keycap.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    const rect = keycap.getBoundingClientRect();
+    keycapDrag = {
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      moved: false,
+    };
+    keycap.setPointerCapture(event.pointerId);
+  });
+
+  keycap.addEventListener('pointermove', (event) => {
+    if (!keycapDrag) return;
+    if (!keycapDrag.moved) {
+      const distance = Math.hypot(
+        event.clientX - keycapDrag.startX,
+        event.clientY - keycapDrag.startY,
+      );
+      if (distance < DRAG_THRESHOLD) return;
+      keycapDrag.moved = true;
+      keycap.classList.add('keycap--dragging');
+    }
+    applyKeycapPos(
+      clampKeycapPos(event.clientX - keycapDrag.offsetX, event.clientY - keycapDrag.offsetY),
+    );
+  });
+
+  function endKeycapDrag() {
+    if (!keycapDrag) return;
+    if (keycapDrag.moved) {
+      suppressKeycapClick = true; // the click event that follows a drag is not a toggle
+      const rect = keycap.getBoundingClientRect();
+      try {
+        localStorage.setItem(KEYCAP_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+      } catch {
+        /* storage blocked: position just won't persist */
+      }
+    }
+    keycap.classList.remove('keycap--dragging');
+    keycapDrag = null;
+  }
+
+  keycap.addEventListener('pointerup', endKeycapDrag);
+  keycap.addEventListener('pointercancel', endKeycapDrag);
+
+  keycap.addEventListener('click', () => {
+    if (suppressKeycapClick) {
+      suppressKeycapClick = false;
+      return;
+    }
+    setInspecting(!inspecting);
+  });
+
+  window.addEventListener('resize', () => {
+    if (!keycap.style.left) return; // still at the default CSS position
+    const rect = keycap.getBoundingClientRect();
+    applyKeycapPos(clampKeycapPos(rect.left, rect.top));
   });
 
   function sourceInfo(el) {
@@ -535,6 +688,8 @@ export function initDevlensOverlay(config) {
   function setInspecting(on) {
     if (on === inspecting) return;
     inspecting = on;
+    keycap.classList.toggle('keycap--active', on);
+    keycapTip.textContent = on ? 'Exit — Esc' : 'Inspect — ⌥ + I';
     if (on) {
       document.addEventListener('mousemove', onMouseMove, true);
       document.addEventListener('click', onClick, true);
