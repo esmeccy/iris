@@ -1,5 +1,5 @@
-// Browser-side DevLens overlay. The plugin serves this file as the virtual
-// module /@devlens/overlay and appends an initDevlensOverlay({ root }) call
+// Browser-side Iris overlay. The plugin serves this file as the virtual
+// module /@iris/overlay and appends an initIrisOverlay({ root }) call
 // with the project's absolute path. All overlay UI lives inside one Shadow
 // DOM host so page styles and overlay styles never touch each other.
 
@@ -10,11 +10,11 @@ import {
   extractVarRefs,
   formatAiContext,
   resolveCascade,
-} from '/@devlens/resolve';
+} from '/@iris/resolve';
 
-const SOURCE_ATTR = 'data-devlens-source';
-const COMPONENT_ATTR = 'data-devlens-component';
-const CSS_INDEX_URL = '/@devlens/css-index';
+const SOURCE_ATTR = 'data-iris-source';
+const COMPONENT_ATTR = 'data-iris-component';
+const CSS_INDEX_URL = '/@iris/css-index';
 
 const STYLES = `
   * { box-sizing: border-box; }
@@ -293,9 +293,9 @@ const STYLES = `
   .dot--gap { background: rgba(168, 85, 247, 0.45); }
 `;
 
-export function initDevlensOverlay(config) {
-  if (window.__devlensOverlay) return;
-  window.__devlensOverlay = true;
+export function initIrisOverlay(config) {
+  if (window.__irisOverlay) return;
+  window.__irisOverlay = true;
 
   const projectRoot = String(config.root || '').replace(/\/+$/, '');
 
@@ -306,7 +306,7 @@ export function initDevlensOverlay(config) {
   let rafId = 0;
 
   const host = document.createElement('div');
-  host.setAttribute('data-devlens-overlay', '');
+  host.setAttribute('data-iris-overlay', '');
   host.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;pointer-events:none;';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
@@ -314,7 +314,7 @@ export function initDevlensOverlay(config) {
     <div class="structure-layer"></div>
     <div class="box box--hover" hidden><span class="label"></span></div>
     <div class="box box--selected" hidden></div>
-    <div class="badge" hidden>DevLens — hover to highlight, click to lock, Esc to exit</div>
+    <div class="badge" hidden>Iris — hover to highlight, click to lock, Esc to exit</div>
     <button class="keycap" type="button" aria-label="Toggle inspect mode">I<span class="keycap-tip">Inspect — ⌥ + I</span></button>
     <aside class="panel" hidden>
       <header class="panel-head">
@@ -465,7 +465,7 @@ export function initDevlensOverlay(config) {
 
   const keycap = shadow.querySelector('.keycap');
   const keycapTip = shadow.querySelector('.keycap-tip');
-  const KEYCAP_POS_KEY = 'devlens-keycap-pos';
+  const KEYCAP_POS_KEY = 'iris-keycap-pos';
   const KEYCAP_SIZE = 46;
   const KEYCAP_MARGIN = 10; // keeps the 5px tray ring fully in view
   const DRAG_THRESHOLD = 4; // px of movement that turns a click into a drag

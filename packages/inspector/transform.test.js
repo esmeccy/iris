@@ -27,32 +27,32 @@ describe('tagJsxSource', () => {
   const result = tagJsxSource(fixture, FIXTURE_PATH);
 
   it('tags native elements with source path and line number', () => {
-    expect(result.code).toContain('<div data-devlens-source="src/Fixture.jsx:4"');
-    expect(result.code).toContain('<span data-devlens-source="src/Fixture.jsx:7"');
-    expect(result.code).toContain('<main data-devlens-source="src/Fixture.jsx:11"');
+    expect(result.code).toContain('<div data-iris-source="src/Fixture.jsx:4"');
+    expect(result.code).toContain('<span data-iris-source="src/Fixture.jsx:7"');
+    expect(result.code).toContain('<main data-iris-source="src/Fixture.jsx:11"');
   });
 
   it('resolves the immediate enclosing component', () => {
     expect(result.code).toContain(
-      '<div data-devlens-source="src/Fixture.jsx:4" data-devlens-component="Card"',
+      '<div data-iris-source="src/Fixture.jsx:4" data-iris-component="Card"',
     );
     expect(result.code).toContain(
-      '<span data-devlens-source="src/Fixture.jsx:7" data-devlens-component="Badge"',
+      '<span data-iris-source="src/Fixture.jsx:7" data-iris-component="Badge"',
     );
     expect(result.code).toContain(
-      '<main data-devlens-source="src/Fixture.jsx:11" data-devlens-component="App"',
+      '<main data-iris-source="src/Fixture.jsx:11" data-iris-component="App"',
     );
   });
 
   it('leaves capitalized component usages untouched', () => {
-    expect(result.code).not.toMatch(/<Card data-devlens/);
-    expect(result.code).not.toMatch(/<Button data-devlens/);
-    expect(result.code).not.toMatch(/<Badge data-devlens/);
+    expect(result.code).not.toMatch(/<Card data-iris/);
+    expect(result.code).not.toMatch(/<Button data-iris/);
+    expect(result.code).not.toMatch(/<Badge data-iris/);
   });
 
   it('keeps the rest of the source byte-identical', () => {
     const stripped = result.code.replace(
-      / data-devlens-source="[^"]*" data-devlens-component="[^"]*"/g,
+      / data-iris-source="[^"]*" data-iris-component="[^"]*"/g,
       '',
     );
     expect(stripped).toBe(fixture);

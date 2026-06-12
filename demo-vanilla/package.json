@@ -1,5 +1,5 @@
 {
-  "name": "devlens-demo-vanilla",
+  "name": "iris-demo-vanilla",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
-    "devlens-inspector": "*",
+    "vite-plugin-iris": "*",
     "vite": "^5.4.11"
   }
 }

@@ -7,7 +7,7 @@ import { buildCssIndex } from './css-index.js';
 let root;
 
 beforeAll(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), 'devlens-'));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), 'iris-'));
   const styles = path.join(root, 'src', 'styles');
   fs.mkdirSync(styles, { recursive: true });
   fs.writeFileSync(
@@ -59,7 +59,7 @@ describe('buildCssIndex', () => {
   });
 
   it('returns an empty index when src/ has no CSS', () => {
-    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'devlens-empty-'));
+    const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'iris-empty-'));
     try {
       expect(buildCssIndex(empty)).toEqual({ fileOrder: [], rules: [], tokens: {} });
     } finally {

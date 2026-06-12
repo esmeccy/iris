@@ -19,7 +19,7 @@ const SKIP_TAGS = new Set([
 
 /**
  * Tags every taggable element in an HTML document with
- * data-devlens-source="<relPath>:<line>". No component attribute: plain HTML
+ * data-iris-source="<relPath>:<line>". No component attribute: plain HTML
  * has no components, and the overlay falls back to the element's tag name.
  * Insertions only — the rest of the markup stays byte-identical.
  */
@@ -35,7 +35,7 @@ export function tagHtmlSource(html, relPath) {
       if (startTag) {
         s.appendLeft(
           startTag.startOffset + 1 + node.tagName.length,
-          ` data-devlens-source="${relPath}:${startTag.startLine}"`,
+          ` data-iris-source="${relPath}:${startTag.startLine}"`,
         );
         tagged = true;
       }

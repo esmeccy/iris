@@ -12,7 +12,7 @@ export default function App() {
   return (
     <main className="page">
       <header className="hero">
-        <h1 className="hero-title">DevLens Demo</h1>
+        <h1 className="hero-title">Iris Demo</h1>
         <p className="hero-subtitle">
           A test bed for the element inspector: nested components, three CSS
           files, and one deliberate token conflict.

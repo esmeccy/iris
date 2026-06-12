@@ -8,19 +8,19 @@ import { tagJsxSource } from './tag-jsx.js';
 export { tagHtmlSource } from './tag-html.js';
 export { tagJsxSource } from './tag-jsx.js';
 
-const OVERLAY_ID = '/@devlens/overlay';
+const OVERLAY_ID = '/@iris/overlay';
 const OVERLAY_FILE = fileURLToPath(new URL('./overlay.js', import.meta.url));
-const RESOLVE_ID = '/@devlens/resolve';
+const RESOLVE_ID = '/@iris/resolve';
 const RESOLVE_FILE = fileURLToPath(new URL('./resolve.js', import.meta.url));
-const CSS_INDEX_URL = '/@devlens/css-index';
+const CSS_INDEX_URL = '/@iris/css-index';
 
-export default function devlensInspector() {
+export default function irisPlugin() {
   let root = process.cwd();
 
   const relPath = (file) => path.relative(root, file).split(path.sep).join('/');
 
   return {
-    name: 'devlens-inspector',
+    name: 'vite-plugin-iris',
     apply: 'serve',
     enforce: 'pre',
 
@@ -65,7 +65,7 @@ export default function devlensInspector() {
       if (id === RESOLVE_ID) return fs.readFileSync(RESOLVE_FILE, 'utf8');
       if (id !== OVERLAY_ID) return null;
       const source = fs.readFileSync(OVERLAY_FILE, 'utf8');
-      return `${source}\ninitDevlensOverlay(${JSON.stringify({ root })});\n`;
+      return `${source}\ninitIrisOverlay(${JSON.stringify({ root })});\n`;
     },
 
     configureServer(server) {

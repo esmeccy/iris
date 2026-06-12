@@ -1,5 +1,5 @@
 {
-  "name": "devlens",
+  "name": "iris",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -8,10 +8,10 @@
     "demo-vanilla"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace devlens-demo",
-    "dev:vanilla": "npm run dev --workspace devlens-demo-vanilla",
-    "build": "npm run build --workspace devlens-demo",
-    "build:vanilla": "npm run build --workspace devlens-demo-vanilla",
+    "dev": "npm run dev --workspace iris-demo",
+    "dev:vanilla": "npm run dev --workspace iris-demo-vanilla",
+    "build": "npm run build --workspace iris-demo",
+    "build:vanilla": "npm run build --workspace iris-demo-vanilla",
     "test": "vitest run"
   },
   "devDependencies": {

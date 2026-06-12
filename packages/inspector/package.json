@@ -1,5 +1,5 @@
 {
-  "name": "devlens-inspector",
+  "name": "vite-plugin-iris",
   "version": "0.1.0",
   "description": "Dev-mode element inspector for Vite + React: tags JSX with source locations.",
   "type": "module",

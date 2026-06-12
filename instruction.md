@@ -145,6 +145,7 @@ The plugin injects `<script type="module" src="/@devlens/overlay">` via `transfo
 - **Ask before guessing.** When the brief is ambiguous, underspecified, or a choice is hard to reverse, Claude Code asks clarifying questions first instead of silently picking an interpretation.
 - **Practical pushback welcome.** Before implementing each step, Claude Code reviews it from a working developer's perspective and proactively suggests more practical alternatives (tooling, structure, edge cases). The human decides what to adopt.
 - **Decision log** (filled in as decisions are made):
+  - 2026-06-12: Project renamed **devlens → iris**; npm package `vite-plugin-iris`. All code identifiers renamed (`data-iris-*` attributes, `/@iris/*` virtual modules, `initIrisOverlay`, `iris-keycap-pos` storage key). Historic docs (briefs/backlog) intentionally left saying DevLens. GitHub repo to be renamed esmeccy/Dev-tool → esmeccy/iris in the web UI (old URL auto-redirects).
   - 2026-06-11: Pin React 18 + Vite 5 (per brief, matches the dogfood target).
   - 2026-06-11: npm workspaces monorepo; demo imports the plugin as `devlens-inspector` by package name (mirrors future standalone publishing).
   - 2026-06-11: Project scaffolded directly in this folder (Dev-tool/ is the repo root); the two docs stay at top level.

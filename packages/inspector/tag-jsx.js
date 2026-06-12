@@ -48,7 +48,7 @@ function walk(node, stack, onOpeningElement) {
 
 /**
  * Tags every native (lowercase) JSX element in `code` with
- * data-devlens-source="<relPath>:<line>" and data-devlens-component="<Name>".
+ * data-iris-source="<relPath>:<line>" and data-iris-component="<Name>".
  * Insertions only — the rest of the source stays byte-identical.
  * Returns { code, map } or null when nothing was tagged.
  */
@@ -64,7 +64,7 @@ export function tagJsxSource(code, relPath) {
     const line = node.loc.start.line;
     s.appendLeft(
       node.name.end,
-      ` data-devlens-source="${relPath}:${line}" data-devlens-component="${component}"`,
+      ` data-iris-source="${relPath}:${line}" data-iris-component="${component}"`,
     );
     tagged = true;
   });

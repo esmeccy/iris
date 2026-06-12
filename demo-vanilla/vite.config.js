@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
-import devlens from 'devlens-inspector';
+import iris from 'vite-plugin-iris';
 
 export default defineConfig({
-  plugins: [devlens()],
+  plugins: [iris()],
 });

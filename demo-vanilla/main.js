@@ -1,5 +1,5 @@
 // Deliberately creates a card at runtime: dynamic DOM can't be statically
-// traced, so DevLens should attribute it to the nearest tagged ancestor
+// traced, so Iris should attribute it to the nearest tagged ancestor
 // (the #cards container from index.html).
 const card = document.createElement('article');
 card.className = 'card card--dynamic';
