@@ -1,11 +1,73 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifyCrumb,
+  classifySourceFile,
   explainDeclaration,
   extractVarRefs,
   formatAiContext,
   resolveCascade,
   specificity,
 } from './resolve.js';
+
+describe('classifySourceFile', () => {
+  it('marks route-entry files as pages', () => {
+    expect(classifySourceFile('index.html')).toBe('page');
+    expect(classifySourceFile('game.html')).toBe('page');
+    expect(classifySourceFile('src/index.jsx')).toBe('page');
+    expect(classifySourceFile('src/pages/About.jsx')).toBe('page');
+    expect(classifySourceFile('src/routes/home.jsx')).toBe('page');
+    expect(classifySourceFile('src/views/Settings.jsx')).toBe('page');
+  });
+
+  it('marks everything else as components', () => {
+    expect(classifySourceFile('src/App.jsx')).toBe('component');
+    expect(classifySourceFile('src/components/Button.jsx')).toBe('component');
+    expect(classifySourceFile('src/components/CardIndex.jsx')).toBe('component');
+  });
+});
+
+describe('classifyCrumb', () => {
+  it('treats the App root as the page, not a component', () => {
+    expect(
+      classifyCrumb({ name: 'App', file: 'src/App.jsx', isComponent: true, isRoot: true }),
+    ).toBe('page');
+  });
+
+  it('keeps reusable building blocks as components', () => {
+    expect(
+      classifyCrumb({
+        name: 'Button',
+        file: 'src/components/Button.jsx',
+        isComponent: true,
+        isRoot: false,
+      }),
+    ).toBe('component');
+    // A nested component that happens to be named App is not the page root.
+    expect(
+      classifyCrumb({ name: 'App', file: 'src/widgets/App.jsx', isComponent: true, isRoot: false }),
+    ).toBe('component');
+  });
+
+  it('classifies page files as pages even when nested', () => {
+    expect(
+      classifyCrumb({
+        name: 'About',
+        file: 'src/pages/About.jsx',
+        isComponent: true,
+        isRoot: false,
+      }),
+    ).toBe('page');
+  });
+
+  it('classifies plain-HTML crumbs as page root or element', () => {
+    expect(
+      classifyCrumb({ name: 'body', file: 'game.html', isComponent: false, isRoot: true }),
+    ).toBe('page');
+    expect(
+      classifyCrumb({ name: 'button', file: 'game.html', isComponent: false, isRoot: false }),
+    ).toBe('element');
+  });
+});
 
 describe('explainDeclaration', () => {
   it('annotates known properties', () => {

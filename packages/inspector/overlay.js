@@ -4,6 +4,8 @@
 // DOM host so page styles and overlay styles never touch each other.
 
 import {
+  KIND_NOTES,
+  classifyCrumb,
   explainDeclaration,
   extractVarRefs,
   formatAiContext,
@@ -138,11 +140,63 @@ const STYLES = `
   .panel-close { border: 0; background: none; color: #667085; font-size: 14px; cursor: pointer; padding: 0 2px; }
   .panel-close:hover { color: #1c2433; }
 
+  .src-link {
+    color: #667085;
+    font-family: ui-monospace, Menlo, monospace;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .src-link::after { content: ' ↗'; font-size: 0.9em; opacity: 0; }
+  .src-link:hover { color: #7c3aed; text-decoration: underline; }
+  .src-link:hover::after { opacity: 1; }
+
   .crumbs { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
-  .crumb { border: 0; background: none; padding: 1px 3px; border-radius: 4px; color: #4f5b76; font: inherit; cursor: pointer; }
+  .crumb-wrap { position: relative; display: inline-flex; }
+  .crumb { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 3px; border-radius: 4px; color: #4f5b76; font: inherit; cursor: pointer; }
   .crumb:hover { background: #eef1f6; color: #1c2433; }
   .crumb--current { color: #7c3aed; font-weight: 600; }
   .crumb-sep { color: #98a2b3; }
+
+  .crumb-kind {
+    font-size: 8.5px;
+    font-weight: 400;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: #eef1f6;
+    border: 1px solid #e2e5ec;
+    color: #667085;
+  }
+  .crumb-kind--page { background: #eff6ff; border-color: #dbeafe; color: #1d4ed8; }
+  .crumb-kind--element { background: #fafafa; border-color: #efefef; color: #98a2b3; }
+  .crumb--current .crumb-kind { background: #f3e8ff; border-color: #e9d5ff; color: #7c3aed; }
+  .panel-title .crumb-kind { margin-left: 6px; vertical-align: 2px; }
+
+  .crumb-tip {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 10;
+    display: none;
+    padding-top: 5px; /* hover bridge between crumb and tooltip */
+  }
+  .crumb-wrap:hover .crumb-tip { display: block; }
+  .crumb-tip-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 9px;
+    border-radius: 6px;
+    background: #1c2433;
+    font: 11px/1.5 system-ui, sans-serif;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.2);
+  }
+  .crumb-rel { color: #98a2b3; }
+  .crumb-tip .src-link { color: #e4e7ec; font-size: 10.5px; }
+  .crumb-tip .src-link:hover { color: #c4b5fd; }
 
   .panel-section h4 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #667085; }
   .classes { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -349,17 +403,42 @@ export function initDevlensOverlay(config) {
     };
   }
 
-  // Walk up from el collecting data-devlens-component, deduplicating
-  // consecutive elements of the same component. Each crumb keeps the
-  // closest element of that component so it can be re-selected.
+  // Builds the breadcrumb, context-first: component boundaries appear under
+  // their component name, but every class-bearing element in between appears
+  // under its primary class (hero, hero-title, card-body, …) — class names
+  // carry the *meaning* of the structure, which is what designers navigate by.
+  // A component boundary is the outermost element of a component subtree
+  // (its parent belongs to a different component, or to none).
   function componentChain(el) {
     const chain = [];
+    let outermostTagged = null;
     for (let cur = el; cur; cur = cur.parentElement) {
-      if (cur.hasAttribute(COMPONENT_ATTR)) {
-        const name = cur.getAttribute(COMPONENT_ATTR);
-        if (!chain.length || chain[chain.length - 1].name !== name) {
-          chain.push({ name, el: cur });
-        }
+      if (!cur.hasAttribute(SOURCE_ATTR)) continue;
+      outermostTagged = cur;
+      const component = cur.getAttribute(COMPONENT_ATTR);
+      const parentComponent = cur.parentElement?.getAttribute?.(COMPONENT_ATTR) ?? null;
+      if (component && component !== parentComponent) {
+        chain.push({ name: component, el: cur, isComponent: true });
+      } else if (cur.classList.length) {
+        chain.push({ name: cur.classList[0], el: cur, tag: cur.tagName.toLowerCase() });
+      } else if (cur === el) {
+        // The selection itself is always a crumb, classes or not.
+        chain.push({ name: cur.tagName.toLowerCase(), el: cur, tag: cur.tagName.toLowerCase() });
+      }
+    }
+    // Plain-HTML pages have no component to anchor the chain: anchor it with
+    // the page file itself ("page is important, and it comes first").
+    if (outermostTagged && !chain.some((crumb) => crumb.isComponent)) {
+      const last = chain[chain.length - 1];
+      if (last && last.el === outermostTagged) {
+        last.isPageRoot = true;
+      } else {
+        const file = (outermostTagged.getAttribute(SOURCE_ATTR) || '').split(':')[0];
+        chain.push({
+          name: file.split('/').pop() || 'page',
+          el: outermostTagged,
+          isPageRoot: true,
+        });
       }
     }
     return chain.reverse();
@@ -415,12 +494,44 @@ export function initDevlensOverlay(config) {
         sep.textContent = '›';
         crumbsNav.appendChild(sep);
       }
+
+      const info = sourceInfo(crumb.el);
+      const kind = crumb.isComponent
+        ? classifyCrumb({ name: crumb.name, file: info.file, isComponent: true, isRoot: index === 0 })
+        : crumb.isPageRoot
+          ? 'page'
+          : 'element';
+      // Components/pages get the kind badge; structural class crumbs get
+      // their tag (header, h1, div) — more telling than a generic "element".
+      const makeBadge = () =>
+        crumb.isComponent || crumb.isPageRoot ? kindBadge(kind) : tagBadge(crumb.tag);
+
+      const wrap = document.createElement('span');
+      wrap.className = 'crumb-wrap';
+
+      // Click the crumb = re-target the inspector (existing behavior).
       const button = document.createElement('button');
       button.type = 'button';
       button.className = index === crumbs.length - 1 ? 'crumb crumb--current' : 'crumb';
       button.textContent = crumb.name;
+      button.appendChild(makeBadge());
       button.addEventListener('click', () => select(crumb.el));
-      crumbsNav.appendChild(button);
+
+      // Hover = tooltip with relation + clickable file:line (Rule A).
+      const relation =
+        index === 0 ? `${kind} root` : `${kind} inside ${crumbs[index - 1].name}`;
+      const tip = document.createElement('span');
+      tip.className = 'crumb-tip';
+      const tipInner = document.createElement('span');
+      tipInner.className = 'crumb-tip-inner';
+      tipInner.append(span('crumb-rel', relation), srcLink(info.file, info.line));
+      tip.appendChild(tipInner);
+
+      wrap.append(button, tip);
+      crumbsNav.appendChild(wrap);
+
+      // The last crumb describes the selection itself: badge the panel title.
+      if (index === crumbs.length - 1) panelTitle.appendChild(makeBadge());
     });
 
     classesBox.replaceChildren();
@@ -446,6 +557,30 @@ export function initDevlensOverlay(config) {
     el.className = className;
     el.textContent = text;
     return el;
+  }
+
+  // Rule A: every codebase-derived fact links to its exact source location.
+  function srcLink(file, line) {
+    const link = document.createElement('a');
+    link.className = 'src-link';
+    link.textContent = `${file}:${line}`;
+    link.href = `vscode://file${projectRoot}/${file}:${line}`;
+    return link;
+  }
+
+  // page/component/element chip; hovering it teaches the word.
+  function kindBadge(kind) {
+    const chip = span(`crumb-kind crumb-kind--${kind}`, kind);
+    chip.title = KIND_NOTES[kind] || '';
+    return chip;
+  }
+
+  // Tag chip for class-named crumbs (hero → header): says what HTML the
+  // class sits on; hover still teaches what an element is.
+  function tagBadge(tag) {
+    const chip = span('crumb-kind crumb-kind--element', tag);
+    chip.title = KIND_NOTES.element;
+    return chip;
   }
 
   // Cascade order of stylesheets, read from document.styleSheets so it covers

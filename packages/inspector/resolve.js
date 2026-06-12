@@ -79,6 +79,40 @@ export function explainDeclaration(prop, value) {
 }
 
 /**
+ * Classifies a source file for breadcrumb badges: 'page' for route-entry
+ * files (.html pages, index.* entries, anything under pages/ routes/ views/),
+ * 'component' for everything else.
+ */
+export function classifySourceFile(file) {
+  if (/\.html?$/i.test(file)) return 'page';
+  const base = file.split('/').pop().replace(/\.[^.]+$/, '');
+  if (base.toLowerCase() === 'index') return 'page';
+  if (/(^|\/)(pages|routes|views)(\/|$)/.test(file)) return 'page';
+  return 'component';
+}
+
+// One shared vocabulary across the whole overlay, written for non-coders.
+// Shown when hovering a kind badge — teaching as a side effect.
+export const KIND_NOTES = {
+  page: 'A screen of your app — what a visitor sees at one URL.',
+  component: 'A reusable building block of your app, defined in your code.',
+  element: 'A basic HTML building block the browser provides (div, button, …).',
+};
+
+/**
+ * Classifies one breadcrumb level as 'page' | 'component' | 'element'.
+ * - Raw HTML tags are elements; the root of an .html file is the page.
+ * - Components from page files (and root components named App/Root) are pages
+ *   — designers think of the app root as "the page", not a component.
+ */
+export function classifyCrumb({ name, file, isComponent, isRoot }) {
+  if (!isComponent) return isRoot && /\.html?$/i.test(file) ? 'page' : 'element';
+  if (classifySourceFile(file) === 'page') return 'page';
+  if (isRoot && /^(App|Root)$/.test(name)) return 'page';
+  return 'component';
+}
+
+/**
  * Selector specificity as a single comparable number:
  * ids * 1e6 + (classes + attributes + pseudo-classes) * 1e3 + types.
  * Rough by design — combinators ignored, :not() contents counted, which is
