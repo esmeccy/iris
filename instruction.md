@@ -84,6 +84,25 @@ The plugin injects `<script type="module" src="/@devlens/overlay">` via `transfo
 
 ---
 
+## Step 3: CSS/token resolution (spec added 2026-06-11, derived from the Product Concept doc)
+
+### What to build
+
+- **Build-side index** (`packages/inspector/css-index.js`): PostCSS scans every `.css` file under the project's `src/`, producing a JSON index of (a) every rule → selector, file:line, declarations, and (b) every custom-property definition → file:line, value, selector. Served fresh on each request at `/@devlens/css-index` via a dev-server middleware (no caching/invalidation needed at this scale).
+- **Runtime facts come from the browser, not guesses**: stylesheet cascade order is read from Vite's injected `style[data-vite-dev-id]` tags; the effective value of a token at the selected element comes from `getComputedStyle`. The static index supplies definition sites; the runtime supplies truth.
+- **Pure resolution logic** (`packages/inspector/resolve.js`, served as `/@devlens/resolve`, unit-tested in node): selector specificity, per-property cascade winner (`!important` > specificity > stylesheet order > source order), `var()` reference extraction, plain-language annotation dictionary (static, no AI/network).
+- **Panel "Styles" section**: for the selected element, list matched rules (winning order first) with file:line (clickable → VS Code). Each declaration: verbatim code + plain-language annotation beside it; cascade losers struck through; `var()` declarations show the token chain (`--name → effective value · defined-in file:line`) with a conflict warning when the same token is defined in multiple files with different values.
+- Out of scope for this step: shorthand↔longhand override detection (`padding` vs `padding-top`), media-query awareness, inherited (non-element-attached) rules, the global token-index view (phase 2).
+
+### Acceptance criteria
+
+1. Selecting a primary button lists `.button` and `.button--primary` with file:line matching components.css.
+2. `.button`'s `background`/`color` declarations are struck through on a primary button (lost to `.button--primary`).
+3. Declarations using `var(--color-primary)` show the effective value with a conflict flag: legacy.css definition wins, global.css definition shown as overridden.
+4. Every declaration shows its verbatim code plus a plain-language annotation.
+5. Unit tests cover the CSS index builder and the cascade/specificity/annotation logic.
+6. `vite build` stays clean (no devlens traces).
+
 ## Working agreements (added 2026-06-11)
 
 - **Ask before guessing.** When the brief is ambiguous, underspecified, or a choice is hard to reverse, Claude Code asks clarifying questions first instead of silently picking an interpretation.

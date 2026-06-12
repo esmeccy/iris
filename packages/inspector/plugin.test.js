@@ -30,6 +30,12 @@ describe('devlensInspector plugin', () => {
     expect(code).toContain('initDevlensOverlay({"root":"/proj"})');
   });
 
+  it('serves the shared resolve module', () => {
+    const plugin = makePlugin();
+    expect(plugin.resolveId('/@devlens/resolve')).toBe('/@devlens/resolve');
+    expect(plugin.load('/@devlens/resolve')).toContain('export function resolveCascade');
+  });
+
   it('transforms jsx under root/src only', () => {
     const plugin = makePlugin();
     const out = plugin.transform('const App = () => <div className="x" />;', '/proj/src/App.jsx');

@@ -3,8 +3,11 @@
 // with the project's absolute path. All overlay UI lives inside one Shadow
 // DOM host so page styles and overlay styles never touch each other.
 
+import { explainDeclaration, extractVarRefs, resolveCascade } from '/@devlens/resolve';
+
 const SOURCE_ATTR = 'data-devlens-source';
 const COMPONENT_ATTR = 'data-devlens-component';
+const CSS_INDEX_URL = '/@devlens/css-index';
 
 const STYLES = `
   * { box-sizing: border-box; }
@@ -56,7 +59,7 @@ const STYLES = `
     position: fixed;
     top: 12px;
     right: 12px;
-    width: 320px;
+    width: 380px;
     max-height: calc(100vh - 24px);
     overflow: auto;
     padding: 14px;
@@ -88,6 +91,23 @@ const STYLES = `
 
   .vscode { display: inline-block; margin-top: 14px; padding: 6px 12px; border-radius: 6px; background: #1c2433; color: #fff; text-decoration: none; font-size: 12px; }
   .vscode:hover { background: #323d52; }
+
+  .rule { margin-bottom: 10px; padding: 8px 10px; border: 1px solid #e2e5ec; border-radius: 6px; }
+  .rule-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+  .rule-sel { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 600; color: #1c2433; }
+  .rule-loc { font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: #667085; text-decoration: none; white-space: nowrap; }
+  .rule-loc:hover { color: #7c3aed; text-decoration: underline; }
+
+  .decl { margin: 3px 0; }
+  .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; }
+  .decl-note { margin-left: 6px; font-size: 11px; color: #98a2b3; font-style: italic; }
+  .decl--overridden .decl-code { text-decoration: line-through; color: #98a2b3; }
+  .decl--overridden .decl-note { display: none; }
+
+  .token-chain { margin: 1px 0 3px 12px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #475467; }
+  .token-loc { color: #667085; }
+  .conflict { display: block; color: #b54708; font-family: system-ui, sans-serif; font-size: 11px; }
+  .styles-empty { color: #98a2b3; }
 `;
 
 export function initDevlensOverlay(config) {
@@ -123,6 +143,10 @@ export function initDevlensOverlay(config) {
         <h4>Classes</h4>
         <div class="classes"></div>
       </section>
+      <section class="panel-section">
+        <h4>Styles</h4>
+        <div class="styles"></div>
+      </section>
       <a class="vscode" href="#">Open in VS Code</a>
     </aside>
   `;
@@ -137,6 +161,7 @@ export function initDevlensOverlay(config) {
   const panelLoc = shadow.querySelector('.panel-loc');
   const crumbsNav = shadow.querySelector('.crumbs');
   const classesBox = shadow.querySelector('.classes');
+  const stylesBox = shadow.querySelector('.styles');
   const vscodeLink = shadow.querySelector('.vscode');
 
   shadow.querySelector('.panel-close').addEventListener('click', () => {
@@ -244,6 +269,124 @@ export function initDevlensOverlay(config) {
       }
     }
     panel.hidden = false;
+    renderStyles(selectedEl);
+  }
+
+  function span(className, text) {
+    const el = document.createElement('span');
+    el.className = className;
+    el.textContent = text;
+    return el;
+  }
+
+  // Cascade order of stylesheets, read from the DOM (Vite injects one
+  // style[data-vite-dev-id] per imported CSS file, in load order). Files the
+  // DOM doesn't know about fall back to the static scan order.
+  function getSheetOrder(fileOrder) {
+    const order = new Map(fileOrder.map((file, i) => [file, i]));
+    document.querySelectorAll('style[data-vite-dev-id]').forEach((tag, i) => {
+      const file = (tag.getAttribute('data-vite-dev-id') || '').split('?')[0];
+      if (file.startsWith(`${projectRoot}/`)) {
+        order.set(file.slice(projectRoot.length + 1), fileOrder.length + i);
+      }
+    });
+    return order;
+  }
+
+  function tokenChainRow(name, index, el, sheetOrder) {
+    const row = document.createElement('div');
+    row.className = 'token-chain';
+
+    const defs = (index.tokens[name] || [])
+      .map((def) => ({ ...def, order: sheetOrder.get(def.file) ?? 0 }))
+      .sort((a, b) => a.order - b.order || a.line - b.line);
+    const winner = defs[defs.length - 1];
+    const effective =
+      getComputedStyle(el).getPropertyValue(name).trim() || (winner ? winner.value : '');
+
+    row.append(span('token-main', `${name} → ${effective || '(unresolved)'}`));
+    if (winner) row.append(span('token-loc', ` · defined in ${winner.file}:${winner.line}`));
+
+    const losing = defs.slice(0, -1).filter((def) => def.value !== winner.value);
+    if (losing.length) {
+      row.append(
+        span(
+          'conflict',
+          `⚠ conflict — also ${losing
+            .map((def) => `${def.value} in ${def.file}:${def.line}`)
+            .join(', ')} (overridden by load order)`,
+        ),
+      );
+    }
+    return row;
+  }
+
+  function ruleCard(rule, index, el, sheetOrder) {
+    const card = document.createElement('div');
+    card.className = 'rule';
+
+    const head = document.createElement('div');
+    head.className = 'rule-head';
+    const sel = document.createElement('code');
+    sel.className = 'rule-sel';
+    sel.textContent = rule.selector;
+    const loc = document.createElement('a');
+    loc.className = 'rule-loc';
+    loc.textContent = `${rule.file}:${rule.line}`;
+    loc.href = `vscode://file${projectRoot}/${rule.file}:${rule.line}`;
+    head.append(sel, loc);
+    card.append(head);
+
+    for (const decl of rule.declarations) {
+      const row = document.createElement('div');
+      row.className = decl.overridden ? 'decl decl--overridden' : 'decl';
+      const code = document.createElement('code');
+      code.className = 'decl-code';
+      code.textContent = `${decl.prop}: ${decl.value}${decl.important ? ' !important' : ''};`;
+      row.append(code);
+      const note = explainDeclaration(decl.prop, decl.value);
+      if (note) row.append(span('decl-note', note));
+      if (!decl.overridden) {
+        for (const name of extractVarRefs(decl.value)) {
+          row.append(tokenChainRow(name, index, el, sheetOrder));
+        }
+      }
+      card.append(row);
+    }
+    return card;
+  }
+
+  async function renderStyles(el) {
+    stylesBox.replaceChildren(span('styles-empty', 'Resolving…'));
+    let index;
+    try {
+      index = await (await fetch(CSS_INDEX_URL)).json();
+    } catch {
+      stylesBox.replaceChildren(span('styles-empty', 'Could not load the CSS index.'));
+      return;
+    }
+    if (el !== selectedEl) return; // selection changed while fetching
+
+    const sheetOrder = getSheetOrder(index.fileOrder);
+    const matched = index.rules
+      .filter((rule) => {
+        try {
+          return el.matches(rule.selector);
+        } catch {
+          return false;
+        }
+      })
+      .map((rule) => ({ ...rule, sheetOrder: sheetOrder.get(rule.file) ?? 0 }));
+
+    resolveCascade(matched);
+    matched.sort((a, b) => b.sheetOrder - a.sheetOrder || b.line - a.line);
+
+    stylesBox.replaceChildren();
+    if (!matched.length) {
+      stylesBox.append(span('styles-empty', 'No rules in src/ match this element.'));
+      return;
+    }
+    for (const rule of matched) stylesBox.append(ruleCard(rule, index, el, sheetOrder));
   }
 
   function select(el) {

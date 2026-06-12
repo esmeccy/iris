@@ -3,9 +3,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parse } from '@babel/parser';
 import MagicString from 'magic-string';
+import { buildCssIndex } from './css-index.js';
 
 const OVERLAY_ID = '/@devlens/overlay';
 const OVERLAY_FILE = fileURLToPath(new URL('./overlay.js', import.meta.url));
+const RESOLVE_ID = '/@devlens/resolve';
+const RESOLVE_FILE = fileURLToPath(new URL('./resolve.js', import.meta.url));
+const CSS_INDEX_URL = '/@devlens/css-index';
 
 const isComponentName = (name) => /^[A-Z]/.test(name);
 
@@ -101,13 +105,24 @@ export default function devlensInspector() {
     },
 
     resolveId(id) {
-      if (id === OVERLAY_ID) return OVERLAY_ID;
+      if (id === OVERLAY_ID || id === RESOLVE_ID) return id;
     },
 
     load(id) {
+      if (id === RESOLVE_ID) return fs.readFileSync(RESOLVE_FILE, 'utf8');
       if (id !== OVERLAY_ID) return null;
       const source = fs.readFileSync(OVERLAY_FILE, 'utf8');
       return `${source}\ninitDevlensOverlay(${JSON.stringify({ root })});\n`;
+    },
+
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url?.split('?')[0] !== CSS_INDEX_URL) return next();
+        res.setHeader('Content-Type', 'application/json');
+        // Rebuilt on every request: always fresh after CSS edits, and cheap
+        // at the scale of one project's src/ stylesheets.
+        res.end(JSON.stringify(buildCssIndex(root)));
+      });
     },
 
     transform(code, id) {
