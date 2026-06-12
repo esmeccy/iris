@@ -221,14 +221,76 @@ const STYLES = `
 
   .decl { margin: 3px 0; }
   .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; text-decoration: none; }
-  .decl-note { margin-left: 6px; font-size: 11px; color: #98a2b3; font-style: italic; }
   .decl--overridden .decl-code { text-decoration: line-through; color: #98a2b3; }
-  .decl--overridden .decl-note { display: none; }
+
+  .note-card {
+    position: fixed;
+    z-index: 20;
+    max-width: 320px;
+    padding: 8px 10px;
+    border: 1px solid #e2e5ec;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.16);
+    font: 11.5px/1.5 system-ui, sans-serif;
+    color: #475467;
+    pointer-events: auto;
+  }
+  .note-card--pinned {
+    position: static;
+    width: 100%;
+    max-width: none;
+    margin: 3px 0 5px;
+    background: #fafbfc;
+    box-shadow: none;
+  }
+  .note-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .note-text { font-style: italic; color: #667085; }
+  .note-pin { flex-shrink: 0; border: 0; background: none; padding: 0 2px; font-size: 10.5px; color: #98a2b3; cursor: pointer; }
+  .note-pin:hover { color: #7c3aed; }
+  .note-card .token-chain { margin: 4px 0 0 12px; }
 
   .token-chain { margin: 1px 0 3px 12px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #475467; }
   .token-loc { color: #667085; }
   .conflict { display: block; color: #b54708; font-family: system-ui, sans-serif; font-size: 11px; }
   .styles-empty { color: #98a2b3; }
+
+  .structure-layer { position: fixed; top: 0; left: 0; pointer-events: none; }
+  .sbox { position: fixed; top: 0; left: 0; pointer-events: none; }
+  .sbox--margin { background: rgba(246, 178, 107, 0.28); }
+  .sbox--padding { background: rgba(130, 196, 157, 0.35); }
+  .sbox--content { border: 1px solid rgba(59, 130, 246, 0.85); }
+  .sbox--parent { border: 1.5px dashed #64748b; }
+  .sbox--sibling { border: 1px dotted #94a3b8; opacity: 0.7; }
+  .sbox--gap { background: rgba(168, 85, 247, 0.16); }
+  .slabel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #1c2433;
+    color: #fff;
+    font: 10px/1.5 ui-monospace, Menlo, monospace;
+    white-space: nowrap;
+  }
+
+  .structure-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 10px 0 2px;
+    font-size: 12px;
+    color: #4f5b76;
+    cursor: pointer;
+    user-select: none;
+  }
+  .structure-toggle input { accent-color: #7c3aed; margin: 0; }
+  .legend { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 10px; color: #98a2b3; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
+  .dot--margin { background: rgba(246, 178, 107, 0.9); }
+  .dot--padding { background: rgba(130, 196, 157, 0.95); }
+  .dot--gap { background: rgba(168, 85, 247, 0.45); }
 `;
 
 export function initDevlensOverlay(config) {
@@ -240,6 +302,7 @@ export function initDevlensOverlay(config) {
   let inspecting = false;
   let hoverEl = null;
   let selectedEl = null;
+  let structureOn = false;
   let rafId = 0;
 
   const host = document.createElement('div');
@@ -248,6 +311,7 @@ export function initDevlensOverlay(config) {
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
     <style>${STYLES}</style>
+    <div class="structure-layer"></div>
     <div class="box box--hover" hidden><span class="label"></span></div>
     <div class="box box--selected" hidden></div>
     <div class="badge" hidden>DevLens — hover to highlight, click to lock, Esc to exit</div>
@@ -261,6 +325,15 @@ export function initDevlensOverlay(config) {
         <button class="panel-close" type="button" title="Clear selection">✕</button>
       </header>
       <nav class="crumbs"></nav>
+      <label class="structure-toggle">
+        <input type="checkbox" class="structure-input" />
+        <span>Structure</span>
+        <span class="legend">
+          <i class="dot dot--margin"></i>margin
+          <i class="dot dot--padding"></i>padding
+          <i class="dot dot--gap"></i>gap
+        </span>
+      </label>
       <section class="panel-section">
         <h4>Classes</h4>
         <div class="classes"></div>
@@ -277,6 +350,8 @@ export function initDevlensOverlay(config) {
   `;
   document.body.appendChild(host);
 
+  const structureLayer = shadow.querySelector('.structure-layer');
+  const structureInput = shadow.querySelector('.structure-input');
   const hoverBox = shadow.querySelector('.box--hover');
   const hoverLabel = shadow.querySelector('.label');
   const selectedBox = shadow.querySelector('.box--selected');
@@ -297,6 +372,94 @@ export function initDevlensOverlay(config) {
     renderPanel();
     scheduleRender();
   });
+
+  // --- Rule B: annotations hidden until hover, pinnable per row -----------
+  // One floating card serves all rows: hovering a row with annotation data
+  // shows it (floated, so nothing shifts); pinning embeds a copy inline under
+  // the row. Pins reset naturally on re-selection (the rows are rebuilt).
+
+  const noteCard = document.createElement('div');
+  noteCard.className = 'note-card';
+  noteCard.hidden = true;
+  shadow.appendChild(noteCard);
+
+  const rowNoteData = new WeakMap(); // row element -> { note, extras() }
+  const pinnedRows = new WeakMap(); // row element -> pinned inline card
+  let noteHideTimer = 0;
+  let noteAnchorRow = null;
+
+  function buildNoteContent(data, row, pinned) {
+    const frag = document.createDocumentFragment();
+    const head = document.createElement('div');
+    head.className = 'note-head';
+    const pinButton = document.createElement('button');
+    pinButton.type = 'button';
+    pinButton.className = 'note-pin';
+    pinButton.textContent = pinned ? 'unpin ✕' : 'pin 📌';
+    pinButton.title = pinned ? 'Hide this explanation again' : 'Keep this explanation visible';
+    pinButton.addEventListener('click', () => togglePin(row));
+    head.append(span('note-text', data.note), pinButton);
+    frag.append(head);
+    for (const extra of data.extras ? data.extras() : []) frag.append(extra);
+    return frag;
+  }
+
+  function showNoteCard(row) {
+    if (pinnedRows.has(row)) return; // already embedded inline
+    const data = rowNoteData.get(row);
+    if (!data) return;
+    clearTimeout(noteHideTimer);
+    if (noteAnchorRow === row && !noteCard.hidden) return;
+    noteAnchorRow = row;
+    noteCard.replaceChildren(buildNoteContent(data, row, false));
+    noteCard.hidden = false;
+    const rect = row.getBoundingClientRect();
+    noteCard.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 330))}px`;
+    noteCard.style.top = `${rect.bottom + 4}px`;
+    const cardHeight = noteCard.getBoundingClientRect().height;
+    if (rect.bottom + 4 + cardHeight > window.innerHeight - 8) {
+      noteCard.style.top = `${rect.top - cardHeight - 4}px`;
+    }
+  }
+
+  function hideNoteCard() {
+    noteCard.hidden = true;
+    noteAnchorRow = null;
+  }
+
+  function scheduleNoteHide() {
+    clearTimeout(noteHideTimer);
+    noteHideTimer = setTimeout(hideNoteCard, 150); // delay prevents flicker
+  }
+
+  function togglePin(row) {
+    const existing = pinnedRows.get(row);
+    if (existing) {
+      existing.remove();
+      pinnedRows.delete(row);
+      return;
+    }
+    const data = rowNoteData.get(row);
+    if (!data) return;
+    const card = document.createElement('div');
+    card.className = 'note-card note-card--pinned';
+    card.append(buildNoteContent(data, row, true));
+    row.insertAdjacentElement('afterend', card);
+    pinnedRows.set(row, card);
+    hideNoteCard();
+  }
+
+  panel.addEventListener('mouseover', (event) => {
+    const row = event.target.closest?.('.decl, .class-chip');
+    if (row) showNoteCard(row);
+  });
+  panel.addEventListener('mouseout', (event) => {
+    const row = event.target.closest?.('.decl, .class-chip');
+    if (row && row === noteAnchorRow) scheduleNoteHide();
+  });
+  noteCard.addEventListener('mouseenter', () => clearTimeout(noteHideTimer));
+  noteCard.addEventListener('mouseleave', scheduleNoteHide);
+  panel.addEventListener('scroll', hideNoteCard);
 
   // --- Keycap entry button: click toggles inspect mode, drag repositions ---
 
@@ -389,6 +552,11 @@ export function initDevlensOverlay(config) {
     setInspecting(!inspecting);
   });
 
+  structureInput.addEventListener('change', () => {
+    structureOn = structureInput.checked;
+    scheduleRender();
+  });
+
   window.addEventListener('resize', () => {
     if (!keycap.style.left) return; // still at the default CSS position
     const rect = keycap.getBoundingClientRect();
@@ -472,6 +640,144 @@ export function initDevlensOverlay(config) {
       const { file, line, component } = sourceInfo(hoverEl);
       hoverLabel.textContent = `<${component}> · ${file}:${line}`;
       hoverLabel.classList.toggle('label--below', hoverEl.getBoundingClientRect().top < 30);
+    }
+    if (structureOn && inspecting && selectedEl && selectedEl.isConnected) {
+      renderStructure(selectedEl);
+    } else {
+      structureLayer.replaceChildren();
+    }
+  }
+
+  // --- Task 5: on-page structure visualization ----------------------------
+
+  function structureBox(className, x, y, width, height) {
+    if (width <= 0 || height <= 0) return null;
+    const box = document.createElement('div');
+    box.className = `sbox ${className}`;
+    box.style.transform = `translate(${x}px, ${y}px)`;
+    box.style.width = `${width}px`;
+    box.style.height = `${height}px`;
+    return box;
+  }
+
+  // Places a label centered on (cx, cy); when it would overlap an already
+  // placed label, it stacks downward until it finds a free spot.
+  function placeLabel(placed, text, cx, cy) {
+    const label = document.createElement('span');
+    label.className = 'slabel';
+    label.textContent = String(text);
+    structureLayer.appendChild(label);
+    const w = label.offsetWidth;
+    const h = label.offsetHeight;
+    const x = Math.max(4, Math.min(cx - w / 2, window.innerWidth - w - 4));
+    let y = Math.max(4, Math.min(cy - h / 2, window.innerHeight - h - 4));
+    let guard = 0;
+    while (
+      guard++ < 24 &&
+      placed.some(
+        (r) => x < r.x + r.w + 2 && r.x < x + w + 2 && y < r.y + r.h + 2 && r.y < y + h + 2,
+      )
+    ) {
+      y += h + 3;
+    }
+    label.style.transform = `translate(${x}px, ${y}px)`;
+    placed.push({ x, y, w, h });
+  }
+
+  function structureNameFor(el) {
+    return (
+      el.getAttribute(COMPONENT_ATTR) || el.classList[0] || el.tagName.toLowerCase()
+    );
+  }
+
+  function renderStructure(el) {
+    structureLayer.replaceChildren();
+    const placed = [];
+    const add = (box) => box && structureLayer.appendChild(box);
+
+    const cs = getComputedStyle(el);
+    const rect = el.getBoundingClientRect();
+    const num = (value) => Math.max(0, parseFloat(value) || 0);
+    const mt = num(cs.marginTop);
+    const mr = num(cs.marginRight);
+    const mb = num(cs.marginBottom);
+    const ml = num(cs.marginLeft);
+    const pt = num(cs.paddingTop);
+    const pr = num(cs.paddingRight);
+    const pb = num(cs.paddingBottom);
+    const pl = num(cs.paddingLeft);
+
+    // Margin: tinted outset strips around the element's box.
+    add(structureBox('sbox--margin', rect.left - ml, rect.top - mt, rect.width + ml + mr, mt));
+    add(structureBox('sbox--margin', rect.left - ml, rect.bottom, rect.width + ml + mr, mb));
+    add(structureBox('sbox--margin', rect.left - ml, rect.top, ml, rect.height));
+    add(structureBox('sbox--margin', rect.right, rect.top, mr, rect.height));
+    // Padding: tinted inset strips inside the box.
+    add(structureBox('sbox--padding', rect.left, rect.top, rect.width, pt));
+    add(structureBox('sbox--padding', rect.left, rect.bottom - pb, rect.width, pb));
+    add(structureBox('sbox--padding', rect.left, rect.top + pt, pl, rect.height - pt - pb));
+    add(structureBox('sbox--padding', rect.right - pr, rect.top + pt, pr, rect.height - pt - pb));
+    // Content box outline.
+    add(
+      structureBox(
+        'sbox--content',
+        rect.left + pl,
+        rect.top + pt,
+        rect.width - pl - pr,
+        rect.height - pt - pb,
+      ),
+    );
+
+    // Numeric labels for every visible margin/padding side.
+    if (mt > 1) placeLabel(placed, Math.round(mt), rect.left + rect.width / 2, rect.top - mt / 2);
+    if (mb > 1) placeLabel(placed, Math.round(mb), rect.left + rect.width / 2, rect.bottom + mb / 2);
+    if (ml > 1) placeLabel(placed, Math.round(ml), rect.left - ml / 2, rect.top + rect.height / 2);
+    if (mr > 1) placeLabel(placed, Math.round(mr), rect.right + mr / 2, rect.top + rect.height / 2);
+    if (pt > 1) placeLabel(placed, Math.round(pt), rect.left + rect.width / 2, rect.top + pt / 2);
+    if (pb > 1) placeLabel(placed, Math.round(pb), rect.left + rect.width / 2, rect.bottom - pb / 2);
+    if (pl > 1) placeLabel(placed, Math.round(pl), rect.left + pl / 2, rect.top + rect.height / 2);
+    if (pr > 1) placeLabel(placed, Math.round(pr), rect.right - pr / 2, rect.top + rect.height / 2);
+
+    // One level up: dashed parent outline with its name.
+    const parent = el.parentElement;
+    if (!parent || parent === document.documentElement) return;
+    const prect = parent.getBoundingClientRect();
+    add(structureBox('sbox--parent', prect.left, prect.top, prect.width, prect.height));
+    placeLabel(placed, structureNameFor(parent), prect.left + 34, prect.top - 9);
+
+    // Direct siblings: light dotted outlines.
+    const kids = [...parent.children].filter(
+      (child) => child !== host && child.getBoundingClientRect().width > 0,
+    );
+    for (const sibling of kids) {
+      if (sibling === el) continue;
+      const srect = sibling.getBoundingClientRect();
+      add(structureBox('sbox--sibling', srect.left, srect.top, srect.width, srect.height));
+    }
+
+    // Flex/grid gap: tinted strips between consecutive children, labeled
+    // with the gap distance.
+    const pcs = getComputedStyle(parent);
+    if (!/(flex|grid)/.test(pcs.display)) return;
+    const colGap = parseFloat(pcs.columnGap) || 0;
+    const rowGap = parseFloat(pcs.rowGap) || 0;
+    if (!colGap && !rowGap) return;
+    for (let i = 0; i < kids.length - 1; i += 1) {
+      const ra = kids[i].getBoundingClientRect();
+      const rb = kids[i + 1].getBoundingClientRect();
+      const vTop = Math.max(ra.top, rb.top);
+      const vBottom = Math.min(ra.bottom, rb.bottom);
+      const hLeft = Math.max(ra.left, rb.left);
+      const hRight = Math.min(ra.right, rb.right);
+      if (colGap && rb.left - ra.right > 1 && vBottom - vTop > 4) {
+        const width = rb.left - ra.right;
+        add(structureBox('sbox--gap', ra.right, vTop, width, vBottom - vTop));
+        placeLabel(placed, Math.round(width), ra.right + width / 2, (vTop + vBottom) / 2);
+      } else if (rowGap && rb.top - ra.bottom > 1 && hRight - hLeft > 4) {
+        const height = rb.top - ra.bottom;
+        add(structureBox('sbox--gap', hLeft, ra.bottom, hRight - hLeft, height));
+        placeLabel(placed, Math.round(height), (hLeft + hRight) / 2, ra.bottom + height / 2);
+      }
     }
   }
 
@@ -695,12 +1001,19 @@ export function initDevlensOverlay(config) {
       code.classList.add('decl-code');
       code.textContent = `${decl.prop}: ${decl.value}${decl.important ? ' !important' : ''};`;
       row.append(code);
+
+      // Rule B: the explanation and token chains are hover-revealed, not
+      // permanently visible. Register them as this row's annotation.
       const note = explainDeclaration(decl.prop, decl.value);
-      if (note) row.append(span('decl-note', note));
-      if (!decl.overridden) {
-        for (const name of extractVarRefs(decl.value)) {
-          row.append(tokenChainRow(name, index, el, sheetOrder));
-        }
+      const noteText = decl.overridden
+        ? `Crossed out: a stronger rule overrides ${decl.prop} on this element.${note ? ` (${note})` : ''}`
+        : note;
+      const tokenNames = decl.overridden ? [] : extractVarRefs(decl.value);
+      if (noteText || tokenNames.length) {
+        rowNoteData.set(row, {
+          note: noteText || 'Uses these design tokens:',
+          extras: () => tokenNames.map((name) => tokenChainRow(name, index, el, sheetOrder)),
+        });
       }
       card.append(row);
     }
@@ -744,13 +1057,24 @@ export function initDevlensOverlay(config) {
         const chip = srcLink(rule.file, rule.line);
         chip.classList.add('class-chip');
         chip.textContent = name;
-        chip.title = `${rule.selector} — ${rule.file}:${rule.line}`;
+        rowNoteData.set(chip, {
+          note: 'A class — a style label on this element that CSS rules target.',
+          extras: () => {
+            const where = document.createElement('div');
+            where.className = 'token-chain';
+            where.append(span('token-loc', `styled by ${rule.selector} · `));
+            where.append(srcLink(rule.file, rule.line));
+            return [where];
+          },
+        });
         classesBox.append(chip);
       } else {
         const chip = document.createElement('code');
         chip.className = 'class-chip';
         chip.textContent = name;
-        chip.title = 'No rule in src/ targets this class';
+        rowNoteData.set(chip, {
+          note: 'A class — a style label on this element. No rule in your CSS targets it.',
+        });
         classesBox.append(chip);
       }
     }
@@ -894,10 +1218,14 @@ export function initDevlensOverlay(config) {
       window.removeEventListener('resize', onViewportChange);
       hoverEl = null;
       selectedEl = null;
+      structureOn = false;
+      structureInput.checked = false;
+      structureLayer.replaceChildren();
       badge.hidden = true;
       panel.hidden = true;
       hoverBox.hidden = true;
       selectedBox.hidden = true;
+      hideNoteCard();
       if (rafId) {
         cancelAnimationFrame(rafId);
         rafId = 0;
