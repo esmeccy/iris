@@ -1,6 +1,11 @@
+import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { parse } from '@babel/parser';
 import MagicString from 'magic-string';
+
+const OVERLAY_ID = '/@devlens/overlay';
+const OVERLAY_FILE = fileURLToPath(new URL('./overlay.js', import.meta.url));
 
 const isComponentName = (name) => /^[A-Z]/.test(name);
 
@@ -83,6 +88,26 @@ export default function devlensInspector() {
 
     configResolved(config) {
       root = config.root;
+    },
+
+    transformIndexHtml() {
+      return [
+        {
+          tag: 'script',
+          attrs: { type: 'module', src: OVERLAY_ID },
+          injectTo: 'body',
+        },
+      ];
+    },
+
+    resolveId(id) {
+      if (id === OVERLAY_ID) return OVERLAY_ID;
+    },
+
+    load(id) {
+      if (id !== OVERLAY_ID) return null;
+      const source = fs.readFileSync(OVERLAY_FILE, 'utf8');
+      return `${source}\ninitDevlensOverlay(${JSON.stringify({ root })});\n`;
     },
 
     transform(code, id) {
