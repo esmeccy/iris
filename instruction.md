@@ -119,6 +119,27 @@ The plugin injects `<script type="module" src="/@devlens/overlay">` via `transfo
 3. `formatAiContext` is unit-tested.
 4. `vite build` stays clean.
 
+## Step 5a: Multi-stack support — vanilla HTML/CSS/JS adapter (spec added 2026-06-11)
+
+> Context: the founder's real project (the Step 5 dogfood target) is plain HTML/JS/CSS, not React. The CSS/token layer is already framework-agnostic; only source tagging is JSX-bound. This step makes tagging pluggable and adds an HTML tagger, so the same plugin works on both stacks. Vue/Svelte taggers can slot into the same seam later.
+
+### What to build
+
+- **Pluggable taggers**: split JSX tagging into `tag-jsx.js`; add `tag-html.js` (parse5 with `sourceCodeLocationInfo` + the same magic-string insertion). The plugin picks the tagger by file type.
+- **HTML tagging**: in dev, `transformIndexHtml` (order `'pre'`, so line numbers refer to the on-disk source) injects `data-devlens-source="<file>.html:<line>"` into every element of every served page. Skipped: `html`, `head` and head-only tags, `script`, `style`, `template`. No `data-devlens-component` — there are no components; the overlay falls back to the element's tag name everywhere a component name was shown, and the breadcrumb simply collapses.
+- **Dynamic DOM**: elements created by JS cannot be statically traced (fundamental limit without a framework runtime); the overlay's existing `closest()` walk attributes them to the nearest tagged static ancestor.
+- **CSS scan widened**: the index scans the whole project root (excluding `node_modules`, `dist`, `build`, dotfiles) instead of only `src/` — vanilla projects keep CSS anywhere. JSX transformation stays `src/`-restricted per Step 1.
+- **Cascade order from `document.styleSheets`**: covers both Vite-injected `<style data-vite-dev-id>` tags (React path) and plain `<link rel="stylesheet">` tags (vanilla path) in true document order.
+- **`demo-vanilla/` workspace**: a plain HTML/CSS/JS test bed mirroring the React demo — three CSS files with the same deliberate `--color-primary` conflict, plus a JS-injected card to demonstrate nearest-ancestor attribution.
+
+### Acceptance criteria
+
+1. `demo-vanilla` runs under Vite; elements in its index.html carry `data-devlens-source="index.html:<line>"` with correct line numbers (no component attribute).
+2. The overlay works there: hover label shows `<tag> · index.html:line`; the panel shows classes, matched rules from the `<link>`ed stylesheets with correct file:line, and the `--color-primary` conflict flag.
+3. A JS-created element highlights/attributes to its nearest tagged ancestor.
+4. The React demo is unaffected (full test suite passes; overlay behavior unchanged).
+5. Unit tests for the HTML tagger; `vite build` of both demos stays clean.
+
 ## Working agreements (added 2026-06-11)
 
 - **Ask before guessing.** When the brief is ambiguous, underspecified, or a choice is hard to reverse, Claude Code asks clarifying questions first instead of silently picking an interpretation.

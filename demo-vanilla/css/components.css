@@ -1,0 +1,82 @@
+.hero {
+  padding: var(--space-lg) 0;
+}
+
+.hero-title {
+  margin: 0 0 var(--space-sm);
+  font-size: 2.5rem;
+}
+
+.hero-subtitle {
+  margin: 0 0 var(--space-md);
+  max-width: 48ch;
+  color: var(--color-muted);
+}
+
+.section {
+  padding: var(--space-lg) 0;
+}
+
+.section-title {
+  margin: 0 0 var(--space-md);
+  font-size: 1.5rem;
+}
+
+.section-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-md);
+}
+
+.card {
+  background: var(--color-surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.card-title {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.card-text {
+  margin: var(--space-sm) 0 var(--space-md);
+  color: var(--color-muted);
+}
+
+.badge {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px var(--space-sm);
+  border-radius: 999px;
+  color: var(--color-primary);
+}
+
+.button {
+  font: inherit;
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-primary);
+  background: var(--color-surface);
+  color: var(--color-primary);
+  cursor: pointer;
+}
+
+.button--primary {
+  background: var(--color-primary);
+  color: var(--color-surface);
+}
+
+.button--ghost {
+  border-color: transparent;
+  background: transparent;
+}

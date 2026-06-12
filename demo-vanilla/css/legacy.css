@@ -1,0 +1,14 @@
+/* Deliberately redefines --color-primary with a different value than
+   global.css — the token-conflict test scenario. Linked last in index.html,
+   so this value wins by load order. */
+:root {
+  --color-primary: #b45309;
+}
+
+.legacy-accent {
+  border: 1px dashed var(--color-primary);
+}
+
+.card--dynamic {
+  outline: 2px dotted var(--color-muted);
+}

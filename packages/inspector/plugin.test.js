@@ -14,8 +14,17 @@ describe('devlensInspector plugin', () => {
     expect(plugin.enforce).toBe('pre');
   });
 
-  it('injects the overlay script tag into index.html', () => {
-    expect(makePlugin().transformIndexHtml()).toEqual([
+  it('tags served HTML and injects the overlay script tag', () => {
+    const plugin = makePlugin();
+    expect(plugin.transformIndexHtml.order).toBe('pre');
+
+    const result = plugin.transformIndexHtml.handler(
+      '<html><body>\n<div class="page"></div>\n</body></html>',
+      { filename: '/proj/index.html' },
+    );
+    expect(result.html).toContain('<div data-devlens-source="index.html:2" class="page">');
+    expect(result.html).not.toContain('data-devlens-component');
+    expect(result.tags).toEqual([
       { tag: 'script', attrs: { type: 'module', src: '/@devlens/overlay' }, injectTo: 'body' },
     ]);
   });

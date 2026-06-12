@@ -190,7 +190,9 @@ export function initDevlensOverlay(config) {
     return {
       file: i > 0 ? source.slice(0, i) : source,
       line: i > 0 ? source.slice(i + 1) : '',
-      component: el.getAttribute(COMPONENT_ATTR) || '?',
+      // No component attribute on non-component stacks (plain HTML):
+      // fall back to the element's own tag name.
+      component: el.getAttribute(COMPONENT_ATTR) || el.tagName.toLowerCase(),
     };
   }
 
@@ -293,17 +295,29 @@ export function initDevlensOverlay(config) {
     return el;
   }
 
-  // Cascade order of stylesheets, read from the DOM (Vite injects one
-  // style[data-vite-dev-id] per imported CSS file, in load order). Files the
-  // DOM doesn't know about fall back to the static scan order.
+  // Cascade order of stylesheets, read from document.styleSheets so it covers
+  // both Vite-injected style[data-vite-dev-id] tags (JS-imported CSS) and
+  // plain <link rel="stylesheet"> tags, in true document order. Files the DOM
+  // doesn't know about fall back to the static scan order.
   function getSheetOrder(fileOrder) {
     const order = new Map(fileOrder.map((file, i) => [file, i]));
-    document.querySelectorAll('style[data-vite-dev-id]').forEach((tag, i) => {
-      const file = (tag.getAttribute('data-vite-dev-id') || '').split('?')[0];
-      if (file.startsWith(`${projectRoot}/`)) {
-        order.set(file.slice(projectRoot.length + 1), fileOrder.length + i);
+    let position = fileOrder.length;
+    for (const sheet of document.styleSheets) {
+      let file = '';
+      const viteDevId = sheet.ownerNode?.dataset?.viteDevId;
+      if (viteDevId) {
+        const id = viteDevId.split('?')[0];
+        if (id.startsWith(`${projectRoot}/`)) file = id.slice(projectRoot.length + 1);
+      } else if (sheet.href) {
+        try {
+          const url = new URL(sheet.href);
+          if (url.origin === location.origin) file = url.pathname.replace(/^\//, '');
+        } catch {
+          /* cross-origin or unparsable: not ours */
+        }
       }
-    });
+      if (file) order.set(file, (position += 1));
+    }
     return order;
   }
 

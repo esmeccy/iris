@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import postcss from 'postcss';
 
+const EXCLUDED_DIRS = new Set(['node_modules', 'dist', 'build', 'coverage']);
+
 function collectCssFiles(dir) {
   let out = [];
   let entries;
@@ -11,7 +13,7 @@ function collectCssFiles(dir) {
     return out;
   }
   for (const entry of entries) {
-    if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+    if (EXCLUDED_DIRS.has(entry.name) || entry.name.startsWith('.')) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) out = out.concat(collectCssFiles(full));
     else if (entry.name.endsWith('.css')) out.push(full);
@@ -20,7 +22,8 @@ function collectCssFiles(dir) {
 }
 
 /**
- * Scans every .css file under <root>/src and builds the static style index:
+ * Scans every .css file under the project root (vanilla projects keep CSS
+ * anywhere, not just src/) and builds the static style index:
  *   fileOrder — scanned files (project-relative), deterministic order
  *   rules     — { file, line, selector, declarations: [{ prop, value, important, line }] }
  *   tokens    — custom property name → [{ file, line, value, selector }]
@@ -32,7 +35,7 @@ export function buildCssIndex(root) {
   const rules = [];
   const tokens = {};
 
-  const files = collectCssFiles(path.resolve(root, 'src')).sort();
+  const files = collectCssFiles(path.resolve(root)).sort();
   for (const abs of files) {
     const rel = path.relative(root, abs).split(path.sep).join('/');
     let ast;

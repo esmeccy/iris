@@ -4,11 +4,14 @@
   "type": "module",
   "workspaces": [
     "packages/*",
-    "demo"
+    "demo",
+    "demo-vanilla"
   ],
   "scripts": {
     "dev": "npm run dev --workspace devlens-demo",
+    "dev:vanilla": "npm run dev --workspace devlens-demo-vanilla",
     "build": "npm run build --workspace devlens-demo",
+    "build:vanilla": "npm run build --workspace devlens-demo-vanilla",
     "test": "vitest run"
   },
   "devDependencies": {
