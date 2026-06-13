@@ -1,4 +1,6 @@
-# Product Concept: A Code Inspector for Designers (working title TBD)
+# Iris — Product Concept: A Code Inspector for Designers
+
+> Name: **Iris** (the eye's aperture; also the rainbow goddess — fitting for a tool that manages color tokens). npm package: `vite-plugin-iris`. Hotkey ⌥+I, keycap entry button "I" — name, hotkey, and entry point form one system.
 
 > An inspector that lives inside your own running app, translating every pixel on screen back to the facts in your codebase: which component, which styles, which token, defined where. Built for designers and front-end developers who are stepping into code and building products with AI.
 
@@ -13,17 +15,18 @@ AI lets designers participate directly in building product code, but it creates 
 - Asking AI to make the change is imprecise — "make that button bigger" sends the AI grepping blindly, editing the wrong thing and wasting tokens.
 - AI-generated code makes the mess worse: design tokens defined redundantly across multiple CSS files, identical card styles copy-pasted instead of extracted into components, hard-coded hex colors bypassing the design system. All of it invisible to the designer.
 
-No existing tool closes this gap:
+No existing tool closes this gap (landscape as of mid-2026):
 
 | Tool | Gap |
 |---|---|
 | Chrome DevTools | Understands the DOM, not your codebase (components, tokens, file structure) |
-| LocatorJS / click-to-component | Click-to-source, but stops at "open the file" — no style/token/dependency explanation |
+| LocatorJS / vite-inspector / TanStack Devtools source inspector | Click-to-source is now a solved (and crowded) problem — but they all stop at "open the file." No style explanation, no token chain, no override analysis. Treat this as foundation, not differentiation. |
 | React DevTools | Component tree, but no CSS, token, or dependency story |
-| Storybook | Requires hand-written stories; designer teams never keep them maintained |
-| Onlook | Takes over the workflow for visual editing instead of explaining existing code |
+| **Stagewise** (YC-backed, €20/mo) and other browser-aware AI agents (Onlook, Tidewave) | The closest strategic neighbor — click an element, an AI agent edits the code for you. Opposite positioning: they sell *automation* ("let AI see and change it"), we sell *understanding and control* ("let the human see, then direct the AI"). As Stagewise grows heavier (a full agentic IDE), the lightweight read-only inspector niche opens up. |
+| TokenOps and CSS-variable web utilities | Token auditing exists only on the Figma side (auditing designs, not code) or as one-off paste-in web tools. Nobody does a live, in-dev-environment token audit of the actual codebase. |
+| Storybook / Ladle / Histoire | All require hand-written stories that teams never keep maintained; no auto-generated, zero-config component inventory with duplicate detection exists. |
 
-**Positioning: DevTools that understands your codebase, a translator into designer language, precision guidance for AI collaboration.**
+**Positioning: DevTools that understands your codebase, a translator into designer language, precision guidance for AI collaboration. The moat is "explain + govern" (style translation, token audit, component map) — not click-to-source, and not AI editing.**
 
 ## 2. Target users
 
@@ -98,7 +101,7 @@ An auto-generated component overview, zero config (vs. Storybook's hand-written 
 1. **Translation is annotation, not replacement.** Class names are always present and always copyable (they are the anchor for searching, prompting, and talking to developers); plain-language explanations sit beside them. Beginners read the annotations, experts scan the real names — one interface serves both, no mode switch.
 2. **Visual first.** Spacing and sizing are drawn (redlines), not described in words.
 3. **Teaching as a side effect.** Every property has a tappable one-line explanation ("`flex-1` = stretch to fill remaining space"). Designers learn to read code while inspecting their own product — more effective than any tutorial, because every example is their own product.
-4. **The read-only promise.** The tool looks but never touches; changes always go through the user (by hand or via their AI). Stating this prominently removes the "afraid to break it" barrier.
+4. **The control promise (refined from "read-only").** The original rule was "Iris never writes code." The refined rule: **Iris only performs deterministic fixes — previewed and confirmed one by one; anything generative goes to the user's AI.** A deterministic fix has exactly one mechanical answer (swap `#3b82f6` for `var(--brand-primary)`): Iris may execute it after showing a per-change preview the user explicitly confirms. A generative fix involves judgment (replace hand-rolled markup with `<ModalHeader/>` — prop mapping, restructuring): Iris only detects it and generates a precise refactoring prompt for the user's AI agent. The spirit was never "no writes" — it is "no change outside the user's sight and control." This line is also the strategic boundary vs. Stagewise: they generate edits with AI; Iris never does.
 5. **If static analysis can answer it, never spend AI on it.** Where it's defined, who uses it, what overrides what — all deterministic compile-time facts, zero token cost, and more accurate than AI guessing. AI is invoked precisely, and only when something needs to *change*.
 
 ## 6. Technical approach
@@ -130,11 +133,46 @@ Token index, component library view, and intent-to-prompt are phase two, after M
 
 Estimate: steps 1–4, a designer + AI pair, roughly 2–4 weeks to a usable prototype.
 
-### Goals and roadmap
+### Goals and positioning
 
-Self-use → open source → commercial: a progression, not a trade-off. First polish it on my own project (high-fidelity needs), then open-source to validate breadth with similar users (naming, docs, distribution effort goes here), then explore commercial boundaries (e.g. team edition, hosted component libraries) once validated.
+**Primary goal: build it for myself, and as a portfolio side project** demonstrating product thinking and design × code ability as a product design graduate. Commercial potential is explicitly deferred — it would require validating the size and willingness-to-pay of the "designers who own a codebase" segment first, and the fastest way to learn that happens to be the same path: build, open-source, watch who shows up.
 
-## 8. Open questions
+This positioning changes execution priorities:
+
+- **Cut scope harder**: self-use + portfolio means no Tailwind support, no multi-persona compromises in v1. MVP steps 1–4 plus one token-audit feature is a complete story. A polished small thing beats an unfinished big one.
+- **The decision trail IS the case study**: problem framing (the live app is the designer's source of truth), the principle reversal ("translation as annotation, not replacement"), persona sequencing, competitive positioning vs. Stagewise (control vs. automation), and the honest risk analysis below — these document product judgment better than any feature list.
+- **Demo video first**: a 30–60s clip (hotkey → hover → click → panel → VS Code jump) at the top of the README and portfolio site. The interaction design of the overlay is itself a design artifact.
+- **The README is the landing page**: most reviewers will read it without installing. Its narrative quality (problem → insight → principles → demo) gets seen before any code does.
+- **Founder-user fit as narrative**: "a designer stepping into code, who used AI to build the tool she needed" — the tool's target user is its maker.
+
+### Later-stage roadmap (post-v1, prioritized)
+
+Ordered by founder-pain first (token confusion is the maker's own biggest pain) and dogfooding value. Each item lists its trigger condition where relevant.
+
+1. **Token library view + design-drift detection** — the global token audit (definitions, conflicts, effective values, orphans) plus flagged hardcoded values with nearest-token suggestions. "Design drift" and a compliance signal (e.g. "82% of styles are tokenized") are the marketing language for this. The founder's own pain: "what's tokenized, and what token should I use?"
+2. **Token picker** — the in-place answer to "what token should I use *here*": when inspecting any element, the panel suggests the nearest matching token for each hardcoded value. Same data as the library view, embedded in the daily workflow — likely higher frequency of use than the global view.
+3. **"Hex Killer" — deterministic token fixes** — Iris flags a hardcoded value, shows a per-change preview (file, line, before → after), the user confirms each change, Iris executes the mechanical swap. Allowed under the refined control promise (deterministic, previewed, confirmed). No batch silent fixes.
+4. **MCP server — become the AI editor's context provider** — instead of copy-paste, Cursor / Claude Code query Iris directly via MCP: "which element is the user pointing at, its component chain, its file:line, the project's allowed tokens." Positioning: don't compete with AI editors; be their eyes. Also a strong 2026 portfolio signal.
+5. **Component library view** — the auto-generated, zero-config component map (usage counts, variants, live previews).
+6. **Component overlap detection** — "this hand-rolled markup is 94% similar to `<ModalHeader/>`" → detection + a precise refactoring prompt for the user's AI. Generative fix, so Iris never executes it (control promise).
+7. **unplugin migration** — adopt the unplugin architecture to support webpack/Next/Turbopack with one codebase. Trigger: real users requesting non-Vite support after open-source release. Not before — deliberate narrowness is the current defense.
+
+**Evaluated and rejected** (kept here because the reasoning is part of the product judgment):
+
+- **Proxy-based zero-config injection (`npx iris-dev` proxying the dev server)** — a proxy only sees compiled output; all of Iris's precision (file:line tagging, CSS index) comes from compile time. This path degrades the product to runtime guessing. Zero-config is achieved instead via `npx iris init` (auto config edit) + AI-assisted install.
+- **One-click automatic fixes without preview** (auto "Sync to Token", auto component replacement) — violates the control promise; this is the Stagewise direction and abandoning the boundary unfocuses the product.
+- **Freemium pricing design ($8–15/mo tiers, B2B seats)** — not wrong, premature. Requires users and retention data that don't exist yet. Revisit only with real post-release usage. (The B2B "governance dashboard" idea — team-level drift scoring — is noted as the most plausible eventual monetization.)
+- **Two-way Figma sync** — an engineering graveyard (conflict resolution, API limits, data-model mismatch) competing with Figma's own Code Connect. The acceptable future version is one-way read-only export of code tokens to Figma Variables format.
+
+## 8. Honest risks and weaknesses (product/business view)
+
+1. **Dev tools are notoriously hard to monetize.** Developers expect free; designers don't buy dev tools. LocatorJS never commercialized. Realistic paths are open-source-for-distribution with paid team features — or accepting this as a credibility project, which is the chosen framing.
+2. **Window risk: AI may absorb this layer.** The core bet is "humans need to understand code to control AI." If agents become reliably accurate, the understanding need shrinks. Platform absorption is the nearer threat: TanStack Devtools already ships a source inspector; Vite/Next could build this natively. The moat is taste and integration, not technology.
+3. **The target segment is a transition zone.** Designers-entering-code may "graduate" to real DevTools, or stay inside walled gardens (Lovable/v0 have their own visual editors and never touch a Vite project). The defensible segment — designers who own their codebase — is growing but unproven in size. This is the assumption most worth validating.
+4. **Maintenance burden for a solo builder.** Front-end stack fragmentation (Tailwind v4, CSS-in-JS, RSC, Svelte…) makes each adapter a liability; LocatorJS is the cautionary tale. Defense: keep support surface deliberately narrow.
+5. **Distribution mismatch.** Dev tools spread via GitHub/HN; designers aren't there. Designer channels don't install npm packages. Likely answer: content marketing (teaching designers to read code, with the tool as the vehicle). Also: the "saves AI tokens" pitch depreciates as inference costs fall — don't center it.
+
+## 9. Open questions
 
 - How should elements from third-party component libraries (shadcn/ui, MUI) be attributed and explained?
 - With deep component nesting, how many breadcrumb levels are most useful?
