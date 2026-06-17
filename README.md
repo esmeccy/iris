@@ -2,7 +2,7 @@
 
 **See your UI. Find your code.**
 
-Iris is a dev-mode element inspector for people whose source of truth is the *running app* — designers, front-end developers, and vibe coders. Press one key, click any element on your page, and Iris tells you what it is in your codebase: which component, which file and line, which CSS rules style it, and which design tokens those rules use — with every fact one click away from opening in VS Code.
+Iris is a dev-mode element inspector for people whose source of truth is the *running app* — designers, front-end developers, and vibe coders. Press one key, click any element on your page, and Iris tells you what it is in your codebase: which component, which file and line, which CSS rules style it, and which design tokens those rules use — with every fact one click away from opening in your editor (VS Code, Cursor, Antigravity, or a custom URL scheme).
 
 Unlike browser DevTools (which understand the DOM, not your codebase), Iris answers the question you're actually asking: **"what in *my code* makes it look this way?"**
 
@@ -14,7 +14,7 @@ Unlike browser DevTools (which understand the DOM, not your codebase), Iris answ
 - **CSS resolution** — every rule matching the element with file:line; cascade losers struck through; plain-language explanations revealed on hover (pin the ones you want to keep)
 - **Design-token awareness** — CSS custom properties resolved to their effective value with their definition site, and **conflict detection** when the same token is defined in multiple files
 - **Structure visualization** — draw the box model (margin/padding/content), parent boundary, siblings, and flex/grid gap distances directly on the live page
-- **Handoff actions** — *Open in VS Code* (`vscode://` at the exact line) and *Copy AI context* (structured markdown describing the element, its rules, and tokens — paste it to your AI for a precise edit)
+- **Handoff actions** — *Open in your editor* at the exact line (VS Code, Cursor, Antigravity, or a custom URL scheme — pick it in the panel or set a default with the `editor` plugin option) and *Copy AI context* (structured markdown describing the element, its rules, and tokens — paste it to your AI for a precise edit)
 
 **The read-only promise:** Iris looks but never touches. It never writes to your source code, never calls any AI or network service (everything is static analysis), and never reaches your production build (`vite build` output is byte-for-byte unaffected).
 
@@ -40,6 +40,14 @@ export default {
 ```
 
 Run your dev server as usual and press `⌥ + I` (or click the keycap in the top-right corner).
+
+**Default editor (optional).** The panel lets you switch editors at runtime, but you can set the initial default:
+
+```js
+iris({ editor: 'cursor' }) // 'vscode' (default) | 'cursor' | 'antigravity' | 'custom'
+// for 'custom', supply a URL template with {root} {file} {line} placeholders:
+iris({ editor: 'custom', editorTemplate: 'myeditor://open?file={root}/{file}&line={line}' })
+```
 
 ### A plain HTML/CSS/JS folder (no build setup at all)
 
@@ -78,7 +86,7 @@ Then serve with `npx vite` and open the printed URL. All `.html` pages are tagge
 | Highlight | hover any element |
 | Lock the panel | click an element |
 | Re-target | click a breadcrumb level |
-| Jump to code | click any file:line, class chip, CSS line, or token (opens VS Code) |
+| Jump to code | click any file:line, class chip, CSS line, or token (opens your chosen editor) |
 | Explanations | hover a class or CSS line; pin 📌 to keep one open |
 | Box model / gaps on the page | check **Structure** in the panel |
 | Hand off to AI | **Copy AI context**, paste into your AI chat |

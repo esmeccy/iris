@@ -14,8 +14,14 @@ const RESOLVE_ID = '/@iris/resolve';
 const RESOLVE_FILE = fileURLToPath(new URL('./resolve.js', import.meta.url));
 const CSS_INDEX_URL = '/@iris/css-index';
 
-export default function irisPlugin() {
+export default function irisPlugin(options = {}) {
   let root = process.cwd();
+  // Project-level default editor for the "Open in…" jump. Users can still
+  // switch at runtime in the overlay; this is just the initial value.
+  //   editor: 'vscode' | 'cursor' | 'antigravity' | 'custom'
+  //   editorTemplate: URL template with {root} {file} {line} (for 'custom')
+  const editor = options.editor || 'vscode';
+  const editorTemplate = options.editorTemplate || '';
 
   const relPath = (file) => path.relative(root, file).split(path.sep).join('/');
 
@@ -65,7 +71,7 @@ export default function irisPlugin() {
       if (id === RESOLVE_ID) return fs.readFileSync(RESOLVE_FILE, 'utf8');
       if (id !== OVERLAY_ID) return null;
       const source = fs.readFileSync(OVERLAY_FILE, 'utf8');
-      return `${source}\ninitIrisOverlay(${JSON.stringify({ root })});\n`;
+      return `${source}\ninitIrisOverlay(${JSON.stringify({ root, editor, editorTemplate })});\n`;
     },
 
     configureServer(server) {
@@ -75,6 +81,21 @@ export default function irisPlugin() {
         // Rebuilt on every request: always fresh after CSS edits, and cheap
         // at the scale of one project's stylesheets.
         res.end(JSON.stringify(buildCssIndex(root)));
+      });
+
+      // The overlay/resolve modules are read from disk in `load`, so they live
+      // outside Vite's module graph and would otherwise be served stale (cached)
+      // after edits until a manual server restart. Watch the source files and,
+      // on change, invalidate the virtual modules and reload the page.
+      const watched = { [OVERLAY_FILE]: OVERLAY_ID, [RESOLVE_FILE]: RESOLVE_ID };
+      server.watcher.add(Object.keys(watched));
+      server.watcher.on('change', (file) => {
+        if (!(file in watched)) return;
+        for (const id of [OVERLAY_ID, RESOLVE_ID]) {
+          const mod = server.moduleGraph.getModuleById(id);
+          if (mod) server.moduleGraph.invalidateModule(mod);
+        }
+        server.ws.send({ type: 'full-reload' });
       });
     },
   };

@@ -36,7 +36,14 @@ describe('irisPlugin plugin', () => {
 
     const code = plugin.load('/@iris/overlay');
     expect(code).toContain('function initIrisOverlay');
-    expect(code).toContain('initIrisOverlay({"root":"/proj"})');
+    expect(code).toContain('initIrisOverlay({"root":"/proj","editor":"vscode","editorTemplate":""})');
+  });
+
+  it('bakes the configured editor into the overlay module', () => {
+    const plugin = irisPlugin({ editor: 'cursor' });
+    plugin.configResolved({ root: '/proj' });
+    const code = plugin.load('/@iris/overlay');
+    expect(code).toContain('"editor":"cursor"');
   });
 
   it('serves the shared resolve module', () => {

@@ -7,7 +7,7 @@
   font-size: 2.5rem;
 }
 
-.hero-subtitle {
+ems.hero-subtitle {
   margin: 0 0 var(--space-md);
   max-width: 48ch;
   color: var(--color-muted);

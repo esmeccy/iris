@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   classifyCrumb,
   classifySourceFile,
+  describeViewportRegion,
   explainDeclaration,
   extractVarRefs,
   formatAiContext,
@@ -151,6 +152,45 @@ describe('resolveCascade', () => {
     expect(a.declarations[0].overridden).toBe(false);
     expect(b.declarations[0].overridden).toBe(false);
   });
+
+  it('marks a single declaration as uncontested', () => {
+    const [a] = resolveCascade([
+      rule('.x', 0, 1, [{ prop: 'color', value: 'red', important: false, line: 2 }]),
+    ]);
+    expect(a.declarations[0].cascade).toMatchObject({ contested: false, winner: true, rank: 1, total: 1 });
+    expect(a.declarations[0].cascade.reason).toBeUndefined();
+  });
+
+  it('explains why the winner wins and the loser loses on a contested property', () => {
+    const [a, b] = resolveCascade([
+      rule('.button.primary', 0, 1, [{ prop: 'color', value: 'red', important: false, line: 2 }]),
+      rule('.button', 1, 1, [{ prop: 'color', value: 'blue', important: false, line: 2 }]),
+    ]);
+    expect(a.declarations[0].cascade).toMatchObject({
+      contested: true,
+      winner: true,
+      reason: 'higher specificity',
+    });
+    expect(b.declarations[0].cascade).toMatchObject({
+      contested: true,
+      winnerSelector: '.button.primary',
+      reason: 'higher specificity',
+    });
+  });
+});
+
+describe('describeViewportRegion', () => {
+  const vp = { viewportWidth: 1200, viewportHeight: 900 };
+  it('names corners', () => {
+    expect(describeViewportRegion({ x: 0, y: 0, width: 100, height: 50, ...vp })).toBe('top-left');
+    expect(describeViewportRegion({ x: 1100, y: 850, width: 80, height: 40, ...vp })).toBe('bottom-right');
+  });
+  it('names the center', () => {
+    expect(describeViewportRegion({ x: 560, y: 430, width: 80, height: 40, ...vp })).toBe('center');
+  });
+  it('returns empty without viewport size', () => {
+    expect(describeViewportRegion({ x: 0, y: 0, width: 10, height: 10 })).toBe('');
+  });
 });
 
 describe('formatAiContext', () => {
@@ -189,21 +229,21 @@ describe('formatAiContext', () => {
     ],
   };
 
-  it('renders every section of the handoff markdown', () => {
+  it('renders a concise identity + CSS handoff', () => {
     const text = formatAiContext(ctx);
-    expect(text).toContain('- Component: <Button> — src/components/Button.jsx:3');
-    expect(text).toContain('- Component path: App › Section › Card › Button');
-    expect(text).toContain('- DOM element: <button class="button button--primary">');
-    expect(text).toContain('.button--primary — src/styles/components.css:74');
-    expect(text).toContain('.button — src/styles/components.css:64');
-    expect(text).toContain(
-      '  background: var(--color-surface);  [overridden — loses the cascade]',
-    );
-    expect(text).toContain('- --color-primary = #d946ef (defined in src/styles/legacy.css:5)');
-    expect(text).toContain(
-      '  - ⚠ also defined as #4f46e5 in src/styles/global.css:2 — overridden by load order',
-    );
-    expect(text).toContain('edit the source files referenced above');
+    expect(text).toContain('- **Element:** `<button class="button button--primary">`');
+    expect(text).toContain('- **Component:** <Button> — src/components/Button.jsx:3');
+    expect(text).toContain('- **Path:** App › Section › Card › Button');
+    expect(text).toContain('`.button--primary` — src/styles/components.css:74');
+    expect(text).toContain('`.button` — src/styles/components.css:64');
+    expect(text).toContain('  cursor: pointer;');
+    expect(text).toContain('- --color-primary = #d946ef — src/styles/legacy.css:5');
+  });
+
+  it('omits overridden declarations from the CSS', () => {
+    const text = formatAiContext(ctx);
+    expect(text).not.toContain('var(--color-surface)'); // overridden — dropped
+    expect(text).not.toContain('overridden');
   });
 
   it('handles an element with no matched rules or tokens', () => {
@@ -216,7 +256,7 @@ describe('formatAiContext', () => {
       rules: [],
       tokens: [],
     });
-    expect(text).toContain('- DOM element: <main>');
+    expect(text).toContain('- **Element:** `<main>`');
     expect(text).toContain('(no rules in src/ match this element)');
     expect(text).not.toContain('### Design tokens');
   });

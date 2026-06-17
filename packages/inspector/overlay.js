@@ -123,8 +123,11 @@ const STYLES = `
     right: 12px;
     width: 380px;
     max-height: calc(100vh - 24px);
-    overflow: auto;
-    padding: 14px;
+    /* Column layout: a static header bar + a scrolling body. The header (and
+       its close button) therefore never scroll away or sit under a scrollbar. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     border: 1px solid #e2e5ec;
     border-radius: 10px;
     background: #fff;
@@ -133,11 +136,48 @@ const STYLES = `
     box-shadow: 0 8px 30px rgba(16, 24, 40, 0.12);
     pointer-events: auto;
   }
+  /* display:flex above overrides the [hidden] attribute's UA display:none,
+     so restore it explicitly — otherwise the panel shows when it shouldn't
+     and the close button can't hide it. */
+  .panel[hidden] { display: none; }
 
-  .panel-head { display: flex; justify-content: space-between; gap: 8px; }
-  .panel-title { font-weight: 600; font-size: 14px; font-family: ui-monospace, Menlo, monospace; }
-  .panel-loc { color: #667085; font-family: ui-monospace, Menlo, monospace; font-size: 11px; margin-top: 2px; }
-  .panel-close { border: 0; background: none; color: #667085; font-size: 14px; cursor: pointer; padding: 0 2px; }
+  .panel-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 12px 14px 14px;
+  }
+  .panel-body > :first-child { margin-top: 0; }
+
+  .panel-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px 10px 14px;
+    background: #fff;
+    border-bottom: 1px solid #eef1f6;
+    border-radius: 10px 10px 0 0;
+  }
+  .panel-drag {
+    flex: 0 0 auto;
+    border: 0;
+    background: none;
+    padding: 2px 4px;
+    color: #98a2b3;
+    font-size: 15px;
+    line-height: 1;
+    cursor: grab;
+    touch-action: none;
+    border-radius: 5px;
+  }
+  .panel-drag:hover { color: #667085; background: #f2f4f7; }
+  .panel--dragging .panel-drag { cursor: grabbing; }
+  /* Headings take the remaining space and ellipsize so they can never push the
+     close button off the edge. */
+  .panel-headings { flex: 1 1 auto; min-width: 0; }
+  .panel-title { font-weight: 600; font-size: 14px; font-family: ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-loc { color: #667085; font-family: ui-monospace, Menlo, monospace; font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-close { flex: 0 0 auto; border: 0; background: none; color: #667085; font-size: 14px; cursor: pointer; padding: 0 2px; }
   .panel-close:hover { color: #1c2433; }
 
   .src-link {
@@ -154,6 +194,7 @@ const STYLES = `
   .conflict .src-link { color: inherit; font-family: inherit; }
 
   .crumbs { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
+  .crumbs[hidden] { display: none; } /* display:flex would otherwise defeat the collapse */
   .crumb-wrap { position: relative; display: inline-flex; }
   .crumb { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 3px; border-radius: 4px; color: #4f5b76; font: inherit; cursor: pointer; }
   .crumb:hover { background: #eef1f6; color: #1c2433; }
@@ -222,6 +263,11 @@ const STYLES = `
   .decl { margin: 3px 0; }
   .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; text-decoration: none; }
   .decl--overridden .decl-code { text-decoration: line-through; color: #98a2b3; }
+  .cascade-badge {
+    display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+    font: 9.5px system-ui, sans-serif; line-height: 15px; vertical-align: 1px; white-space: nowrap;
+  }
+  .cascade-badge--lose { background: #fef3f2; color: #b42318; border: 1px solid #fecdca; }
 
   .note-card {
     position: fixed;
@@ -278,20 +324,86 @@ const STYLES = `
   .structure-toggle {
     display: flex;
     align-items: center;
-    gap: 6px;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     margin: 10px 0 2px;
     font-size: 12px;
     color: #4f5b76;
-    cursor: pointer;
     user-select: none;
   }
-  .structure-toggle input { accent-color: #7c3aed; margin: 0; }
-  .legend { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-size: 10px; color: #98a2b3; }
+  .structure-label { color: #667085; }
+  .stype { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .stype--muted { opacity: 0.35; }
+  .stype input { accent-color: #7c3aed; margin: 0; width: 13px; height: 13px; }
   .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
   .dot--margin { background: rgba(246, 178, 107, 0.9); }
   .dot--padding { background: rgba(130, 196, 157, 0.95); }
   .dot--gap { background: rgba(168, 85, 247, 0.45); }
+
+  /* Item 3: collapsible breadcrumb */
+  .crumbs-wrap { margin: 10px 0 2px; }
+  .crumbs-toggle {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 0; background: none; padding: 2px 3px; border-radius: 4px;
+    color: #4f5b76; font: inherit; cursor: pointer; max-width: 100%;
+  }
+  .crumbs-toggle:hover { background: #eef1f6; color: #1c2433; }
+  .crumbs-caret { color: #98a2b3; font-size: 10px; }
+  .crumbs-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Item 1: editor picker */
+  .editor-row { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
+  .editor-label {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #667085;
+  }
+  .editor-pick {
+    font: 12px system-ui, sans-serif; color: #1c2433;
+    padding: 3px 6px; border-radius: 5px; border: 1px solid #d0d5dd; background: #fff;
+    text-transform: none; letter-spacing: 0;
+  }
+  .editor-template {
+    font: 11px ui-monospace, Menlo, monospace; color: #1c2433;
+    padding: 5px 8px; border-radius: 5px; border: 1px solid #d0d5dd; background: #fff;
+  }
+
+  /* Item 4: highlight declarations that drive an active structure annotation,
+     color-matched to that type's checkbox dot. */
+  .decl--hl { border-radius: 4px; }
+  .decl--hl[data-sgroup="margin"] { background: rgba(246, 178, 107, 0.16); box-shadow: inset 2px 0 0 rgba(246, 178, 107, 0.9); }
+  .decl--hl[data-sgroup="padding"] { background: rgba(130, 196, 157, 0.16); box-shadow: inset 2px 0 0 rgba(130, 196, 157, 0.95); }
+  .decl--hl[data-sgroup="gap"] { background: rgba(168, 85, 247, 0.12); box-shadow: inset 2px 0 0 rgba(168, 85, 247, 0.55); }
 `;
+
+// Editor jump targets. Templates use {root} {file} {line} {col} placeholders.
+// All are VS Code-family schemes. The trailing :{line}:{col} is required for
+// these editors to actually move the cursor to (and highlight) the line — with
+// only :{line} many builds open the file but don't navigate to it.
+// Antigravity IDE registers 'antigravity-ide' (its product.json urlProtocol) —
+// distinct from the 'antigravity' companion app.
+const EDITORS = {
+  vscode: { label: 'VS Code', template: 'vscode://file{root}/{file}:{line}:{col}' },
+  cursor: { label: 'Cursor', template: 'cursor://file{root}/{file}:{line}:{col}' },
+  antigravity: { label: 'Antigravity IDE', template: 'antigravity-ide://file{root}/{file}:{line}:{col}' },
+  custom: { label: 'Custom', template: '' },
+};
+
+// localStorage can throw (private mode, sandboxed iframes); never let the
+// overlay break over a preference read/write.
+function lsGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function lsSet(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function initIrisOverlay(config) {
   if (window.__irisOverlay) return;
@@ -302,8 +414,40 @@ export function initIrisOverlay(config) {
   let inspecting = false;
   let hoverEl = null;
   let selectedEl = null;
-  let structureOn = false;
+  // Active structure annotation types. Empty = nothing drawn (was structureOn).
+  const structureTypes = readStructureTypes();
   let rafId = 0;
+
+  // --- Item 1: editor jump target (runtime-switchable, persisted) ----------
+  const EDITOR_KEY = 'iris:editor';
+  const EDITOR_TEMPLATE_KEY = 'iris:editor-custom-template';
+
+  let editorId = lsGet(EDITOR_KEY) || config.editor || 'vscode';
+  if (!EDITORS[editorId]) editorId = 'vscode';
+  let customTemplate =
+    lsGet(EDITOR_TEMPLATE_KEY) || (config.editorTemplate || '');
+
+  function editorUrl(file, line) {
+    const template =
+      editorId === 'custom'
+        ? customTemplate || EDITORS.vscode.template
+        : EDITORS[editorId].template;
+    return template
+      .replaceAll('{root}', projectRoot)
+      .replaceAll('{file}', file)
+      .replaceAll('{line}', String(line))
+      .replaceAll('{col}', '1');
+  }
+
+  function readStructureTypes() {
+    const stored = lsGet('iris:structure-types');
+    // First run defaults to all; an explicit empty choice is preserved ('').
+    if (stored == null) return new Set(['margin', 'padding', 'gap']);
+    return new Set(stored.split(',').filter(Boolean));
+  }
+  function saveStructureTypes() {
+    lsSet('iris:structure-types', [...structureTypes].join(','));
+  }
 
   const host = document.createElement('div');
   host.setAttribute('data-iris-overlay', '');
@@ -318,22 +462,28 @@ export function initIrisOverlay(config) {
     <button class="keycap" type="button" aria-label="Toggle inspect mode">I<span class="keycap-tip">Inspect — ⌥ + I</span></button>
     <aside class="panel" hidden>
       <header class="panel-head">
-        <div>
+        <button class="panel-drag" type="button" title="Drag to move the panel" aria-label="Drag to move the panel">⠿</button>
+        <div class="panel-headings">
           <div class="panel-title"></div>
           <div class="panel-loc"></div>
         </div>
         <button class="panel-close" type="button" title="Clear selection">✕</button>
       </header>
-      <nav class="crumbs"></nav>
-      <label class="structure-toggle">
-        <input type="checkbox" class="structure-input" />
-        <span>Structure</span>
-        <span class="legend">
-          <i class="dot dot--margin"></i>margin
-          <i class="dot dot--padding"></i>padding
-          <i class="dot dot--gap"></i>gap
-        </span>
-      </label>
+      <div class="panel-body">
+      <div class="crumbs-wrap">
+        <button class="crumbs-toggle" type="button" aria-expanded="false" title="Show breadcrumb path">
+          <span class="crumbs-caret">▸</span>
+          <span class="crumbs-summary"></span>
+        </button>
+        <nav class="crumbs" hidden></nav>
+      </div>
+      <div class="structure-toggle">
+        <span class="structure-label">Structure</span>
+        <label class="stype stype--all"><input type="checkbox" class="stype-all" />all</label>
+        <label class="stype"><input type="checkbox" class="stype-input" data-type="margin" /><i class="dot dot--margin"></i>margin</label>
+        <label class="stype"><input type="checkbox" class="stype-input" data-type="padding" /><i class="dot dot--padding"></i>padding</label>
+        <label class="stype"><input type="checkbox" class="stype-input" data-type="gap" /><i class="dot dot--gap"></i>gap</label>
+      </div>
       <section class="panel-section">
         <h4>Classes</h4>
         <div class="classes"></div>
@@ -342,21 +492,42 @@ export function initIrisOverlay(config) {
         <h4>Styles</h4>
         <div class="styles"></div>
       </section>
+      <div class="editor-row">
+        <label class="editor-label">Open in
+          <select class="editor-pick">
+            <option value="vscode">VS Code</option>
+            <option value="cursor">Cursor</option>
+            <option value="antigravity">Antigravity IDE</option>
+            <option value="custom">Custom…</option>
+          </select>
+        </label>
+        <input class="editor-template" type="text" spellcheck="false"
+          placeholder="myeditor://open?file={root}/{file}&line={line}&col={col}" hidden />
+      </div>
       <div class="actions">
-        <a class="vscode" href="#">Open in VS Code</a>
+        <a class="vscode" href="#">Open in editor</a>
         <button class="copy-context" type="button">Copy AI context</button>
+      </div>
       </div>
     </aside>
   `;
   document.body.appendChild(host);
 
   const structureLayer = shadow.querySelector('.structure-layer');
-  const structureInput = shadow.querySelector('.structure-input');
+  const structureInputs = [...shadow.querySelectorAll('.stype-input')];
+  const structureAllInput = shadow.querySelector('.stype-all');
+  const crumbsWrap = shadow.querySelector('.crumbs-wrap');
+  const crumbsToggle = shadow.querySelector('.crumbs-toggle');
+  const crumbsCaret = shadow.querySelector('.crumbs-caret');
+  const crumbsSummary = shadow.querySelector('.crumbs-summary');
+  const editorPick = shadow.querySelector('.editor-pick');
+  const editorTemplateInput = shadow.querySelector('.editor-template');
   const hoverBox = shadow.querySelector('.box--hover');
   const hoverLabel = shadow.querySelector('.label');
   const selectedBox = shadow.querySelector('.box--selected');
   const badge = shadow.querySelector('.badge');
   const panel = shadow.querySelector('.panel');
+  const panelDragHandle = shadow.querySelector('.panel-drag');
   const panelTitle = shadow.querySelector('.panel-title');
   const panelLoc = shadow.querySelector('.panel-loc');
   const crumbsNav = shadow.querySelector('.crumbs');
@@ -552,15 +723,150 @@ export function initIrisOverlay(config) {
     setInspecting(!inspecting);
   });
 
-  structureInput.addEventListener('change', () => {
-    structureOn = structureInput.checked;
-    scheduleRender();
+  // The inspector panel can be dragged by its header so it never permanently
+  // covers the element being inspected. Same click-vs-drag threshold as the
+  // keycap: a quick click on the title/location link still opens the editor.
+  const PANEL_POS_KEY = 'iris:panel-pos';
+  const PANEL_MARGIN = 8;
+
+  function clampPanelPos(x, y) {
+    const w = panel.offsetWidth || 380;
+    return {
+      x: Math.min(Math.max(PANEL_MARGIN, x), Math.max(PANEL_MARGIN, window.innerWidth - w - PANEL_MARGIN)),
+      // Keep the header on screen even if the panel is taller than the viewport.
+      y: Math.min(Math.max(PANEL_MARGIN, y), window.innerHeight - 44),
+    };
+  }
+
+  function applyPanelPos(pos) {
+    panel.style.left = `${pos.x}px`;
+    panel.style.top = `${pos.y}px`;
+    panel.style.right = 'auto';
+  }
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(PANEL_POS_KEY));
+    if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+      applyPanelPos(clampPanelPos(saved.x, saved.y));
+    }
+  } catch {
+    /* corrupt/blocked storage: keep the default top-right position */
+  }
+
+  let panelDrag = null;
+
+  panelDragHandle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    const rect = panel.getBoundingClientRect();
+    panelDrag = {
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    panel.classList.add('panel--dragging');
+    panelDragHandle.setPointerCapture(event.pointerId);
   });
 
+  panelDragHandle.addEventListener('pointermove', (event) => {
+    if (!panelDrag) return;
+    applyPanelPos(
+      clampPanelPos(event.clientX - panelDrag.offsetX, event.clientY - panelDrag.offsetY),
+    );
+  });
+
+  function endPanelDrag() {
+    if (!panelDrag) return;
+    const rect = panel.getBoundingClientRect();
+    try {
+      localStorage.setItem(PANEL_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+    } catch {
+      /* storage blocked: position just won't persist */
+    }
+    panel.classList.remove('panel--dragging');
+    panelDrag = null;
+  }
+
+  panelDragHandle.addEventListener('pointerup', endPanelDrag);
+  panelDragHandle.addEventListener('pointercancel', endPanelDrag);
+
+  // Item 4: per-type structure toggles. Each drives one annotation kind and
+  // highlights the matching declaration rows in the Styles panel.
+  // "all" is a master toggle that checks/clears every type at once.
+  function syncStructureUI() {
+    for (const input of structureInputs) {
+      input.checked = structureTypes.has(input.dataset.type);
+    }
+    structureAllInput.checked = structureTypes.size === structureInputs.length;
+    structureAllInput.indeterminate =
+      structureTypes.size > 0 && structureTypes.size < structureInputs.length;
+  }
+  for (const input of structureInputs) {
+    input.addEventListener('change', () => {
+      if (input.checked) structureTypes.add(input.dataset.type);
+      else structureTypes.delete(input.dataset.type);
+      saveStructureTypes();
+      syncStructureUI();
+      applyStructureHighlight();
+      scheduleRender();
+    });
+  }
+  structureAllInput.addEventListener('change', () => {
+    structureTypes.clear();
+    if (structureAllInput.checked) {
+      for (const input of structureInputs) structureTypes.add(input.dataset.type);
+    }
+    saveStructureTypes();
+    syncStructureUI();
+    applyStructureHighlight();
+    scheduleRender();
+  });
+  syncStructureUI();
+
+  // Item 3: breadcrumb collapsed by default, expand on click (persisted).
+  let crumbsExpanded = lsGet('iris:crumbs-expanded') === '1';
+  function applyCrumbsExpanded() {
+    crumbsNav.hidden = !crumbsExpanded;
+    crumbsToggle.setAttribute('aria-expanded', String(crumbsExpanded));
+    crumbsCaret.textContent = crumbsExpanded ? '▾' : '▸';
+  }
+  crumbsToggle.addEventListener('click', () => {
+    crumbsExpanded = !crumbsExpanded;
+    lsSet('iris:crumbs-expanded', crumbsExpanded ? '1' : '0');
+    applyCrumbsExpanded();
+  });
+  applyCrumbsExpanded();
+
+  // Item 1: editor picker. Switching re-renders so existing links pick up the
+  // new scheme.
+  editorPick.value = editorId;
+  editorTemplateInput.value = customTemplate;
+  editorTemplateInput.hidden = editorId !== 'custom';
+  refreshEditorLinks();
+  editorPick.addEventListener('change', () => {
+    editorId = editorPick.value;
+    lsSet(EDITOR_KEY, editorId);
+    editorTemplateInput.hidden = editorId !== 'custom';
+    refreshEditorLinks();
+  });
+  editorTemplateInput.addEventListener('input', () => {
+    customTemplate = editorTemplateInput.value.trim();
+    lsSet(EDITOR_TEMPLATE_KEY, customTemplate);
+    refreshEditorLinks();
+  });
+
+  function refreshEditorLinks() {
+    vscodeLink.textContent = `Open in ${EDITORS[editorId].label}`;
+    if (selectedEl && selectedEl.isConnected) renderPanel();
+  }
+
   window.addEventListener('resize', () => {
-    if (!keycap.style.left) return; // still at the default CSS position
-    const rect = keycap.getBoundingClientRect();
-    applyKeycapPos(clampKeycapPos(rect.left, rect.top));
+    if (keycap.style.left) {
+      const rect = keycap.getBoundingClientRect();
+      applyKeycapPos(clampKeycapPos(rect.left, rect.top));
+    }
+    if (panel.style.left) {
+      const rect = panel.getBoundingClientRect();
+      applyPanelPos(clampPanelPos(rect.left, rect.top));
+    }
   });
 
   function sourceInfo(el) {
@@ -641,7 +947,7 @@ export function initIrisOverlay(config) {
       hoverLabel.textContent = `<${component}> · ${file}:${line}`;
       hoverLabel.classList.toggle('label--below', hoverEl.getBoundingClientRect().top < 30);
     }
-    if (structureOn && inspecting && selectedEl && selectedEl.isConnected) {
+    if (structureTypes.size && inspecting && selectedEl && selectedEl.isConnected) {
       renderStructure(selectedEl);
     } else {
       structureLayer.replaceChildren();
@@ -690,6 +996,58 @@ export function initIrisOverlay(config) {
     );
   }
 
+  // Maps a CSS property to the structure toggle it belongs to (or null).
+  function structureGroup(prop) {
+    const p = prop.toLowerCase();
+    if (p === 'margin' || p.startsWith('margin-')) return 'margin';
+    if (p === 'padding' || p.startsWith('padding-')) return 'padding';
+    if (p === 'gap' || p === 'row-gap' || p === 'column-gap' || p === 'grid-gap')
+      return 'gap';
+    return null;
+  }
+
+  // Which structure types actually exist on this element, so the toggles for
+  // the ones that don't apply (e.g. no padding) can be muted.
+  // A flex/grid container with a non-zero row/column gap.
+  function containerHasGap(node) {
+    if (!node || node === document.documentElement) return false;
+    const cs = getComputedStyle(node);
+    if (!/(flex|grid)/.test(cs.display)) return false;
+    return (parseFloat(cs.columnGap) || 0) > 0 || (parseFloat(cs.rowGap) || 0) > 0;
+  }
+
+  function structureApplicability(el) {
+    const cs = getComputedStyle(el);
+    const n = (v) => Math.max(0, parseFloat(v) || 0);
+    const margin =
+      n(cs.marginTop) + n(cs.marginRight) + n(cs.marginBottom) + n(cs.marginLeft) > 0;
+    const padding =
+      n(cs.paddingTop) + n(cs.paddingRight) + n(cs.paddingBottom) + n(cs.paddingLeft) > 0;
+    // Gap applies when the element itself has a gap (between its children) or
+    // its parent does (between the element and its siblings) — matching what
+    // the on-page gap visualization actually draws.
+    const gap = containerHasGap(el) || containerHasGap(el.parentElement);
+    return { margin, padding, gap };
+  }
+
+  function updateStructureApplicability(el) {
+    const applies = structureApplicability(el);
+    for (const input of structureInputs) {
+      const label = input.closest('.stype');
+      const ok = applies[input.dataset.type];
+      label.classList.toggle('stype--muted', !ok);
+      label.title = ok ? '' : `No ${input.dataset.type} on this element`;
+    }
+  }
+
+  // Item 4: highlight declaration rows whose property matches an active toggle,
+  // so the user sees exactly which code drives the on-page annotation.
+  function applyStructureHighlight() {
+    for (const row of stylesBox.querySelectorAll('.decl[data-sgroup]')) {
+      row.classList.toggle('decl--hl', structureTypes.has(row.dataset.sgroup));
+    }
+  }
+
   function renderStructure(el) {
     structureLayer.replaceChildren();
     const placed = [];
@@ -707,78 +1065,104 @@ export function initIrisOverlay(config) {
     const pb = num(cs.paddingBottom);
     const pl = num(cs.paddingLeft);
 
-    // Margin: tinted outset strips around the element's box.
-    add(structureBox('sbox--margin', rect.left - ml, rect.top - mt, rect.width + ml + mr, mt));
-    add(structureBox('sbox--margin', rect.left - ml, rect.bottom, rect.width + ml + mr, mb));
-    add(structureBox('sbox--margin', rect.left - ml, rect.top, ml, rect.height));
-    add(structureBox('sbox--margin', rect.right, rect.top, mr, rect.height));
-    // Padding: tinted inset strips inside the box.
-    add(structureBox('sbox--padding', rect.left, rect.top, rect.width, pt));
-    add(structureBox('sbox--padding', rect.left, rect.bottom - pb, rect.width, pb));
-    add(structureBox('sbox--padding', rect.left, rect.top + pt, pl, rect.height - pt - pb));
-    add(structureBox('sbox--padding', rect.right - pr, rect.top + pt, pr, rect.height - pt - pb));
-    // Content box outline.
-    add(
-      structureBox(
-        'sbox--content',
-        rect.left + pl,
-        rect.top + pt,
-        rect.width - pl - pr,
-        rect.height - pt - pb,
-      ),
-    );
+    // Item 4: each kind only draws when its toggle is on.
+    const showMargin = structureTypes.has('margin');
+    const showPadding = structureTypes.has('padding');
+    const showGap = structureTypes.has('gap');
+
+    if (showMargin) {
+      // Margin: tinted outset strips around the element's box.
+      add(structureBox('sbox--margin', rect.left - ml, rect.top - mt, rect.width + ml + mr, mt));
+      add(structureBox('sbox--margin', rect.left - ml, rect.bottom, rect.width + ml + mr, mb));
+      add(structureBox('sbox--margin', rect.left - ml, rect.top, ml, rect.height));
+      add(structureBox('sbox--margin', rect.right, rect.top, mr, rect.height));
+    }
+    if (showPadding) {
+      // Padding: tinted inset strips inside the box.
+      add(structureBox('sbox--padding', rect.left, rect.top, rect.width, pt));
+      add(structureBox('sbox--padding', rect.left, rect.bottom - pb, rect.width, pb));
+      add(structureBox('sbox--padding', rect.left, rect.top + pt, pl, rect.height - pt - pb));
+      add(structureBox('sbox--padding', rect.right - pr, rect.top + pt, pr, rect.height - pt - pb));
+    }
+    if (showMargin || showPadding) {
+      // Content box outline frames whichever spacing is shown.
+      add(
+        structureBox(
+          'sbox--content',
+          rect.left + pl,
+          rect.top + pt,
+          rect.width - pl - pr,
+          rect.height - pt - pb,
+        ),
+      );
+    }
 
     // Numeric labels for every visible margin/padding side.
-    if (mt > 1) placeLabel(placed, Math.round(mt), rect.left + rect.width / 2, rect.top - mt / 2);
-    if (mb > 1) placeLabel(placed, Math.round(mb), rect.left + rect.width / 2, rect.bottom + mb / 2);
-    if (ml > 1) placeLabel(placed, Math.round(ml), rect.left - ml / 2, rect.top + rect.height / 2);
-    if (mr > 1) placeLabel(placed, Math.round(mr), rect.right + mr / 2, rect.top + rect.height / 2);
-    if (pt > 1) placeLabel(placed, Math.round(pt), rect.left + rect.width / 2, rect.top + pt / 2);
-    if (pb > 1) placeLabel(placed, Math.round(pb), rect.left + rect.width / 2, rect.bottom - pb / 2);
-    if (pl > 1) placeLabel(placed, Math.round(pl), rect.left + pl / 2, rect.top + rect.height / 2);
-    if (pr > 1) placeLabel(placed, Math.round(pr), rect.right - pr / 2, rect.top + rect.height / 2);
+    if (showMargin) {
+      if (mt > 1) placeLabel(placed, Math.round(mt), rect.left + rect.width / 2, rect.top - mt / 2);
+      if (mb > 1) placeLabel(placed, Math.round(mb), rect.left + rect.width / 2, rect.bottom + mb / 2);
+      if (ml > 1) placeLabel(placed, Math.round(ml), rect.left - ml / 2, rect.top + rect.height / 2);
+      if (mr > 1) placeLabel(placed, Math.round(mr), rect.right + mr / 2, rect.top + rect.height / 2);
+    }
+    if (showPadding) {
+      if (pt > 1) placeLabel(placed, Math.round(pt), rect.left + rect.width / 2, rect.top + pt / 2);
+      if (pb > 1) placeLabel(placed, Math.round(pb), rect.left + rect.width / 2, rect.bottom - pb / 2);
+      if (pl > 1) placeLabel(placed, Math.round(pl), rect.left + pl / 2, rect.top + rect.height / 2);
+      if (pr > 1) placeLabel(placed, Math.round(pr), rect.right - pr / 2, rect.top + rect.height / 2);
+    }
 
-    // One level up: dashed parent outline with its name.
+    // Gap framing only shows with the gap toggle on.
+    if (!showGap) return;
+
+    // Tinted strips between a flex/grid container's consecutive children,
+    // labeled with the gap distance.
+    const drawGaps = (container) => {
+      const ccs = getComputedStyle(container);
+      if (!/(flex|grid)/.test(ccs.display)) return;
+      const colGap = parseFloat(ccs.columnGap) || 0;
+      const rowGap = parseFloat(ccs.rowGap) || 0;
+      if (!colGap && !rowGap) return;
+      const items = [...container.children].filter(
+        (child) => child !== host && child.getBoundingClientRect().width > 0,
+      );
+      for (let i = 0; i < items.length - 1; i += 1) {
+        const ra = items[i].getBoundingClientRect();
+        const rb = items[i + 1].getBoundingClientRect();
+        const vTop = Math.max(ra.top, rb.top);
+        const vBottom = Math.min(ra.bottom, rb.bottom);
+        const hLeft = Math.max(ra.left, rb.left);
+        const hRight = Math.min(ra.right, rb.right);
+        if (colGap && rb.left - ra.right > 1 && vBottom - vTop > 4) {
+          const width = rb.left - ra.right;
+          add(structureBox('sbox--gap', ra.right, vTop, width, vBottom - vTop));
+          placeLabel(placed, Math.round(width), ra.right + width / 2, (vTop + vBottom) / 2);
+        } else if (rowGap && rb.top - ra.bottom > 1 && hRight - hLeft > 4) {
+          const height = rb.top - ra.bottom;
+          add(structureBox('sbox--gap', hLeft, ra.bottom, hRight - hLeft, height));
+          placeLabel(placed, Math.round(height), (hLeft + hRight) / 2, ra.bottom + height / 2);
+        }
+      }
+    };
+
+    // The selected element's own gaps (between its children) — this is the gap
+    // that shows up in the element's own styles.
+    drawGaps(el);
+
+    // Context: the parent outline, the siblings, and the gap between this
+    // element and those siblings.
     const parent = el.parentElement;
     if (!parent || parent === document.documentElement) return;
     const prect = parent.getBoundingClientRect();
     add(structureBox('sbox--parent', prect.left, prect.top, prect.width, prect.height));
     placeLabel(placed, structureNameFor(parent), prect.left + 34, prect.top - 9);
-
-    // Direct siblings: light dotted outlines.
-    const kids = [...parent.children].filter(
-      (child) => child !== host && child.getBoundingClientRect().width > 0,
-    );
-    for (const sibling of kids) {
-      if (sibling === el) continue;
+    for (const sibling of parent.children) {
+      if (sibling === el || sibling === host) continue;
       const srect = sibling.getBoundingClientRect();
-      add(structureBox('sbox--sibling', srect.left, srect.top, srect.width, srect.height));
-    }
-
-    // Flex/grid gap: tinted strips between consecutive children, labeled
-    // with the gap distance.
-    const pcs = getComputedStyle(parent);
-    if (!/(flex|grid)/.test(pcs.display)) return;
-    const colGap = parseFloat(pcs.columnGap) || 0;
-    const rowGap = parseFloat(pcs.rowGap) || 0;
-    if (!colGap && !rowGap) return;
-    for (let i = 0; i < kids.length - 1; i += 1) {
-      const ra = kids[i].getBoundingClientRect();
-      const rb = kids[i + 1].getBoundingClientRect();
-      const vTop = Math.max(ra.top, rb.top);
-      const vBottom = Math.min(ra.bottom, rb.bottom);
-      const hLeft = Math.max(ra.left, rb.left);
-      const hRight = Math.min(ra.right, rb.right);
-      if (colGap && rb.left - ra.right > 1 && vBottom - vTop > 4) {
-        const width = rb.left - ra.right;
-        add(structureBox('sbox--gap', ra.right, vTop, width, vBottom - vTop));
-        placeLabel(placed, Math.round(width), ra.right + width / 2, (vTop + vBottom) / 2);
-      } else if (rowGap && rb.top - ra.bottom > 1 && hRight - hLeft > 4) {
-        const height = rb.top - ra.bottom;
-        add(structureBox('sbox--gap', hLeft, ra.bottom, hRight - hLeft, height));
-        placeLabel(placed, Math.round(height), (hLeft + hRight) / 2, ra.bottom + height / 2);
+      if (srect.width > 0) {
+        add(structureBox('sbox--sibling', srect.left, srect.top, srect.width, srect.height));
       }
     }
+    drawGaps(parent);
   }
 
   function scheduleRender() {
@@ -790,15 +1174,21 @@ export function initIrisOverlay(config) {
       panel.hidden = true;
       return;
     }
+    updateStructureApplicability(selectedEl);
     const { file, line, component } = sourceInfo(selectedEl);
     // Rule A: the title and its location both open the defining file:line.
     const titleLink = srcLink(file, line);
     titleLink.textContent = `<${component}>`;
     panelTitle.replaceChildren(titleLink);
     panelLoc.replaceChildren(srcLink(file, line));
-    vscodeLink.href = `vscode://file${projectRoot}/${file}:${line}`;
+    vscodeLink.href = editorUrl(file, line);
 
     const crumbs = componentChain(selectedEl);
+    // Item 3: compact summary shown when the breadcrumb is collapsed.
+    crumbsSummary.textContent =
+      crumbs.length <= 2
+        ? crumbs.map((c) => c.name).join(' › ')
+        : `${crumbs[0].name} › … › ${crumbs[crumbs.length - 1].name}`;
     crumbsNav.replaceChildren();
     crumbs.forEach((crumb, index) => {
       if (index) {
@@ -872,12 +1262,16 @@ export function initIrisOverlay(config) {
     return el;
   }
 
+  function cascadeBadge(kind, text) {
+    return span(`cascade-badge cascade-badge--${kind}`, text);
+  }
+
   // Rule A: every codebase-derived fact links to its exact source location.
   function srcLink(file, line) {
     const link = document.createElement('a');
     link.className = 'src-link';
     link.textContent = `${file}:${line}`;
-    link.href = `vscode://file${projectRoot}/${file}:${line}`;
+    link.href = editorUrl(file, line);
     return link;
   }
 
@@ -996,11 +1390,23 @@ export function initIrisOverlay(config) {
     for (const decl of rule.declarations) {
       const row = document.createElement('div');
       row.className = decl.overridden ? 'decl decl--overridden' : 'decl';
+      // Item 4: tag the row so an active structure toggle can highlight the
+      // exact declarations driving the on-page annotation.
+      const sgroup = structureGroup(decl.prop);
+      if (sgroup) row.dataset.sgroup = sgroup;
       // Rule A: each declaration opens the editor at its own line.
       const code = srcLink(rule.file, decl.line);
       code.classList.add('decl-code');
       code.textContent = `${decl.prop}: ${decl.value}${decl.important ? ' !important' : ''};`;
       row.append(code);
+
+      // Priority: when more than one matched rule sets this property, mark only
+      // the losers — kept short ("overridden by <selector>") for readability.
+      // The winner needs no badge; it's the effective value.
+      const c = decl.cascade;
+      if (c && c.contested && !c.winner) {
+        row.append(cascadeBadge('lose', `overridden by ${c.winnerSelector}`));
+      }
 
       // Rule B: the explanation and token chains are hover-revealed, not
       // permanently visible. Register them as this row's annotation.
@@ -1102,6 +1508,42 @@ export function initIrisOverlay(config) {
     for (const rule of data.matched) {
       stylesBox.append(ruleCard(rule, data.index, el, data.sheetOrder));
     }
+    applyStructureHighlight();
+  }
+
+  // A plain-language description of what the element is, plus the semantic
+  // attributes and visible text an AI would otherwise need a screenshot to see.
+  function describeElement(el) {
+    const tag = el.tagName.toLowerCase();
+    const role = el.getAttribute('role');
+    let kind;
+    if (tag === 'button' || role === 'button') kind = 'a button';
+    else if (tag === 'a') kind = el.getAttribute('href') ? 'a link' : 'an anchor';
+    else if (tag === 'input') kind = `an input (type=${el.getAttribute('type') || 'text'})`;
+    else if (tag === 'select') kind = 'a dropdown (select)';
+    else if (tag === 'textarea') kind = 'a text area';
+    else if (tag === 'img') kind = 'an image';
+    else if (tag === 'svg') kind = 'an icon / graphic (svg)';
+    else if (/^h[1-6]$/.test(tag)) kind = `a heading (<${tag}>)`;
+    else if (tag === 'p') kind = 'a paragraph';
+    else if (tag === 'ul' || tag === 'ol') kind = 'a list';
+    else if (['nav', 'header', 'footer', 'main', 'aside', 'section', 'article'].includes(tag))
+      kind = `a <${tag}> region`;
+    else kind = `a <${tag}> element`;
+
+    const component = el.getAttribute(COMPONENT_ATTR);
+    if (component) kind += ` rendered by the <${component}> component`;
+
+    const attributes = {};
+    for (const name of ['role', 'aria-label', 'alt', 'title', 'href', 'type', 'placeholder', 'name', 'value']) {
+      const value = el.getAttribute(name);
+      if (value) attributes[name] = value;
+    }
+
+    let text = (el.textContent || '').replace(/\s+/g, ' ').trim();
+    if (text.length > 100) text = `${text.slice(0, 100)}…`;
+
+    return { kind, text, attributes };
   }
 
   async function onCopyContext() {
@@ -1124,12 +1566,22 @@ export function initIrisOverlay(config) {
           }
         }
       }
+      const rect = el.getBoundingClientRect();
       const text = formatAiContext({
         component,
         source: `${file}:${line}`,
         breadcrumb: componentChain(el).map((crumb) => crumb.name),
         tag: el.tagName.toLowerCase(),
         classes: [...el.classList],
+        element: describeElement(el),
+        layout: {
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+          viewportWidth: window.innerWidth,
+          viewportHeight: window.innerHeight,
+        },
         rules: matched,
         tokens,
       });
@@ -1218,8 +1670,7 @@ export function initIrisOverlay(config) {
       window.removeEventListener('resize', onViewportChange);
       hoverEl = null;
       selectedEl = null;
-      structureOn = false;
-      structureInput.checked = false;
+      // Per-type toggles persist across sessions; just clear the on-page layer.
       structureLayer.replaceChildren();
       badge.hidden = true;
       panel.hidden = true;
