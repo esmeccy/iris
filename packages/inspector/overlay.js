@@ -16,7 +16,63 @@ const SOURCE_ATTR = 'data-iris-source';
 const COMPONENT_ATTR = 'data-iris-component';
 const CSS_INDEX_URL = '/@iris/css-index';
 
+// Dark-theme token overrides, shared by the manual ([data-theme="dark"]) and
+// automatic (prefers-color-scheme) paths so there is one source of truth.
+const DARK = `
+    --bg-grouped:#000000; --surface:#1C1C1E; --surface-2:#2C2C2E;
+    --fill-1:rgba(120,120,128,0.24); --fill-2:rgba(120,120,128,0.16);
+    --label:#FFFFFF; --label-2:rgba(235,235,245,0.62); --label-3:rgba(235,235,245,0.3);
+    --separator:rgba(84,84,88,0.6); --separator-opaque:#38383A;
+    --accent:#FFFFFF; --on-accent:#000000; --accent-soft:rgba(255,255,255,0.16);
+    --win-text:#30D158; --win-bg:rgba(48,209,88,0.18);
+    --danger-text:#FF6961; --danger-bg:rgba(255,69,58,0.18);
+    --rl-margin:#FF9F0A; --rl-padding:#30D158; --rl-gap:#BF5AF2;
+    --rl-margin-soft:rgba(255,159,10,0.22); --rl-padding-soft:rgba(48,209,88,0.22); --rl-gap-soft:rgba(191,90,242,0.22);
+    --glass:rgba(44,44,46,0.72); --glass-border:rgba(255,255,255,0.12);
+    --hover-solid:rgba(255,255,255,0.1); --hover-soft:rgba(255,255,255,0.06);
+    --el-card:0 1px 2px rgba(0,0,0,0.4);
+    --el-pop:0 10px 30px rgba(0,0,0,0.5);
+    --el-panel:0 22px 54px -10px rgba(0,0,0,0.62), 0 6px 16px rgba(0,0,0,0.4);
+`;
+
 const STYLES = `
+  /* --- Apple HIG v2 token foundation; graphite accent; light + dark --- */
+  :host {
+    --bg-grouped:#F2F2F7; --surface:#FFFFFF; --surface-2:#F2F2F7;
+    --fill-1:rgba(120,120,128,0.12); --fill-2:rgba(120,120,128,0.08);
+    --label:#1C1C1E; --label-2:rgba(60,60,67,0.62); --label-3:rgba(60,60,67,0.32);
+    --separator:rgba(60,60,67,0.16); --separator-opaque:#D3D3D8;
+    /* Graphite accent — near-black in light, white in dark. */
+    --accent:#1C1C1E; --on-accent:#FFFFFF; --accent-soft:rgba(0,0,0,0.06);
+    --win-text:#1E7A34; --win-bg:rgba(52,199,89,0.16);
+    --danger-text:#C7362B; --danger-bg:rgba(255,59,48,0.13);
+    /* The only saturated colours in the system — box model + structure. */
+    --rl-margin:#FF9500; --rl-padding:#34C759; --rl-gap:#AF52DE;
+    --rl-margin-soft:rgba(255,149,0,0.16); --rl-padding-soft:rgba(52,199,89,0.16); --rl-gap-soft:rgba(175,82,222,0.16);
+    --glass:rgba(255,255,255,0.72); --glass-border:rgba(255,255,255,0.7);
+    --hover-solid:rgba(0,0,0,0.06); --hover-soft:rgba(0,0,0,0.04);
+    --r-xs:6px; --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:20px; --r-2xl:28px; --r-full:980px;
+    --el-card:0 1px 2px rgba(0,0,0,0.05), 0 1px 1px rgba(0,0,0,0.03);
+    --el-pop:0 8px 28px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
+    --el-panel:0 18px 48px -10px rgba(0,0,0,0.22), 0 6px 16px rgba(0,0,0,0.07);
+    --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans:-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', system-ui, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    --ease:cubic-bezier(0.25, 0.1, 0.25, 1);
+    /* Thin-line icons, used as masks so they inherit currentColor. */
+    --ic-arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Cpath d='M8 7h9v9'/%3E%3C/svg%3E");
+    --ic-external:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6'/%3E%3Cpath d='M20 4 11 13'/%3E%3Cpath d='M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4'/%3E%3C/svg%3E");
+    --ic-copy:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='9' y='9' width='11' height='11' rx='2.5'/%3E%3Cpath d='M5 15V5a2 2 0 0 1 2-2h10'/%3E%3C/svg%3E");
+  }
+  /* Manual dark override. */
+  :host([data-theme="dark"]) {${DARK}  }
+  /* Automatic: follow the host OS when no manual choice is set. */
+  @media (prefers-color-scheme: dark) {
+    :host([data-theme="auto"]) {${DARK}  }
+  }
+
+  @keyframes irisPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.8); } }
+  @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
+
   * { box-sizing: border-box; }
 
   .box {
@@ -26,88 +82,118 @@ const STYLES = `
     pointer-events: none;
   }
   .box--hover {
-    border: 1.5px solid #4f8cff;
-    background: rgba(79, 140, 255, 0.08);
+    border: 1.5px solid var(--accent);
+    background: var(--accent-soft);
   }
   .box--selected {
-    border: 1.5px solid #a855f7;
+    border: 2px solid var(--accent);
   }
 
+  /* Component-name label — a frosted-glass chip, like floating chrome. */
   .label {
     position: absolute;
     left: -1.5px;
     bottom: 100%;
-    margin-bottom: 4px;
-    padding: 2px 7px;
-    border-radius: 4px;
-    background: #1c2433;
-    color: #fff;
-    font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    margin-bottom: 5px;
+    padding: 3px 9px;
+    border-radius: var(--r-sm);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--glass-border);
+    color: var(--label);
+    font: 11px/1.6 var(--mono);
     white-space: nowrap;
+    box-shadow: var(--el-pop);
   }
   .label--below {
     bottom: auto;
     top: 100%;
-    margin: 4px 0 0;
+    margin: 5px 0 0;
   }
 
+  /* Mode hint — frosted-glass pill with an accent pulse dot. */
   .badge {
     position: fixed;
-    left: 12px;
-    bottom: 12px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    background: #1c2433;
-    color: #fff;
-    font: 12px/1.4 system-ui, sans-serif;
+    left: 16px;
+    bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: var(--r-full);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--glass-border);
+    color: var(--label);
+    font: 12px/1.4 var(--sans);
+    box-shadow: var(--el-pop);
+  }
+  .badge::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: irisPulse 1.6s ease-in-out infinite;
   }
 
+  /* Entry keycap — a frosted-glass squircle (floating chrome). */
   .keycap {
     position: fixed;
     top: 18px;
     right: 18px;
-    width: 46px;
-    height: 46px;
+    width: 48px;
+    height: 48px;
     padding: 0;
-    border: 0;
-    border-radius: 11px;
-    background: #f3f2f2ff;
-    color: #5f6368;
-    font: 500 21px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    box-shadow:
-      0 0 0 5px #e4e5e7,
-      0 1px 1px rgba(0, 0, 0, 0.04),
-      0 6px 14px rgba(16, 24, 40, 0.10);
-    opacity: 0.8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--separator);
+    border-radius: 15px;
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: var(--el-pop);
     cursor: pointer;
     pointer-events: auto;
     user-select: none;
     touch-action: none;
-    transition: opacity 0.15s ease;
+    transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease);
   }
-  .keycap:hover { opacity: 1; }
-  .keycap--dragging { opacity: 1; cursor: grabbing; }
+  .keycap-i {
+    color: var(--label);
+    font: 600 22px/1 var(--mono);
+  }
+  .keycap:hover { box-shadow: var(--el-panel); }
+  .keycap:active { transform: scale(0.96); }
+  .keycap--dragging {
+    cursor: grabbing;
+    box-shadow: var(--el-panel);
+    transform: rotate(-4deg) scale(1.05);
+  }
   .keycap--active {
-    background: #ffffffff;
-    color: #101010ff;
-    box-shadow:
-      0 0 0 5px #e4e5e7,
-      inset 0 1px 3px rgba(161, 161, 161, 0.1);
-    transform: translateY(1px);
-    opacity: 1;
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px var(--accent-soft), var(--el-pop);
   }
+  .keycap--active .keycap-i { color: var(--on-accent); }
 
   .keycap-tip {
     position: absolute;
     top: 50%;
     right: calc(100% + 14px);
     transform: translate(6px, -50%);
-    padding: 4px 9px;
-    border-radius: 6px;
-    background: #1c2433;
-    color: #fff;
-    font: 400 11px/1.6 system-ui, sans-serif;
+    padding: 6px 11px;
+    border-radius: var(--r-sm);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--glass-border);
+    color: var(--label);
+    font: 400 11px/1.6 var(--sans);
     white-space: nowrap;
+    box-shadow: var(--el-pop);
     opacity: 0;
     transition: opacity 0.15s ease, transform 0.15s ease;
     pointer-events: none;
@@ -128,12 +214,12 @@ const STYLES = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid #e2e5ec;
-    border-radius: 10px;
-    background: #fff;
-    color: #1c2433;
-    font: 13px/1.5 system-ui, sans-serif;
-    box-shadow: 0 8px 30px rgba(16, 24, 40, 0.12);
+    border: 1px solid var(--separator);
+    border-radius: var(--r-xl);
+    background: var(--surface);
+    color: var(--label);
+    font: 13px/1.5 var(--sans);
+    box-shadow: var(--el-panel);
     pointer-events: auto;
   }
   /* display:flex above overrides the [hidden] attribute's UA display:none,
@@ -154,41 +240,59 @@ const STYLES = `
     align-items: center;
     gap: 8px;
     padding: 10px 12px 10px 14px;
-    background: #fff;
-    border-bottom: 1px solid #eef1f6;
-    border-radius: 10px 10px 0 0;
+    border-bottom: 1px solid var(--separator);
+    border-radius: var(--r-xl) var(--r-xl) 0 0;
   }
   .panel-drag {
     flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: 0;
     background: none;
-    padding: 2px 4px;
-    color: #98a2b3;
-    font-size: 15px;
-    line-height: 1;
+    padding: 4px;
+    color: var(--label-3);
+    line-height: 0;
     cursor: grab;
     touch-action: none;
-    border-radius: 5px;
+    border-radius: var(--r-xs);
   }
-  .panel-drag:hover { color: #667085; background: #f2f4f7; }
+  .panel-drag:hover { color: var(--label-2); }
   .panel--dragging .panel-drag { cursor: grabbing; }
   /* Headings take the remaining space and ellipsize so they can never push the
      close button off the edge. */
   .panel-headings { flex: 1 1 auto; min-width: 0; }
-  .panel-title { font-weight: 600; font-size: 14px; font-family: ui-monospace, Menlo, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .panel-loc { color: #667085; font-family: ui-monospace, Menlo, monospace; font-size: 11px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .panel-close { flex: 0 0 auto; border: 0; background: none; color: #667085; font-size: 14px; cursor: pointer; padding: 0 2px; }
-  .panel-close:hover { color: #1c2433; }
+  .panel-title { font-weight: 600; font-size: 16px; font-family: var(--mono); color: var(--label); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-loc { color: var(--label-2); font-family: var(--mono); font-size: 11.5px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-close {
+    flex: 0 0 auto; width: 34px; height: 34px; border: 0; background: var(--fill-1);
+    color: var(--label-2); cursor: pointer; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .panel-close:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); color: var(--label); }
 
+  /* Every fact links to source — the recurring bridge from pixel to code. */
   .src-link {
-    color: #667085;
-    font-family: ui-monospace, Menlo, monospace;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--accent);
+    font-family: var(--mono);
     text-decoration: none;
     cursor: pointer;
   }
-  .src-link::after { content: ' ↗'; font-size: 0.9em; opacity: 0; }
-  .src-link:hover { color: #7c3aed; text-decoration: underline; }
-  .src-link:hover::after { opacity: 1; }
+  .src-link::after {
+    content: '';
+    width: 0.8em; height: 0.8em;
+    background: currentColor;
+    -webkit-mask: var(--ic-arrow) center / contain no-repeat;
+    mask: var(--ic-arrow) center / contain no-repeat;
+    opacity: 0;
+    transition: opacity 0.15s var(--ease);
+  }
+  .src-link:hover { text-decoration: underline; }
+  .src-link:hover::after { opacity: 0.85; }
   .panel-title .src-link { color: inherit; }
   .token-chain .src-link { color: inherit; }
   .conflict .src-link { color: inherit; font-family: inherit; }
@@ -196,26 +300,25 @@ const STYLES = `
   .crumbs { margin: 12px 0; display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
   .crumbs[hidden] { display: none; } /* display:flex would otherwise defeat the collapse */
   .crumb-wrap { position: relative; display: inline-flex; }
-  .crumb { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 3px; border-radius: 4px; color: #4f5b76; font: inherit; cursor: pointer; }
-  .crumb:hover { background: #eef1f6; color: #1c2433; }
-  .crumb--current { color: #7c3aed; font-weight: 600; }
-  .crumb-sep { color: #98a2b3; }
+  .crumb { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; padding: 1px 3px; border-radius: var(--r-xs); color: var(--label-2); font: inherit; cursor: pointer; }
+  .crumb:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); color: var(--label); }
+  .crumb--current { color: var(--accent); font-weight: 600; }
+  .crumb-sep { color: var(--label-3); }
 
   .crumb-kind {
     font-size: 8.5px;
-    font-weight: 400;
-    line-height: 1.5;
+    font-weight: 500;
+    line-height: 1.6;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    padding: 0 4px;
-    border-radius: 999px;
-    background: #eef1f6;
-    border: 1px solid #e2e5ec;
-    color: #667085;
+    padding: 0 5px;
+    border-radius: var(--r-full);
+    background: var(--fill-1);
+    color: var(--label-2);
   }
-  .crumb-kind--page { background: #eff6ff; border-color: #dbeafe; color: #1d4ed8; }
-  .crumb-kind--element { background: #fafafa; border-color: #efefef; color: #98a2b3; }
-  .crumb--current .crumb-kind { background: #f3e8ff; border-color: #e9d5ff; color: #7c3aed; }
+  .crumb-kind--page { background: var(--accent-soft); color: var(--accent); }
+  .crumb-kind--element { background: var(--fill-1); color: var(--label-2); }
+  .crumb--current .crumb-kind { background: var(--accent-soft); color: var(--accent); }
   .panel-title .crumb-kind { margin-left: 6px; vertical-align: 2px; }
 
   .crumb-tip {
@@ -231,149 +334,239 @@ const STYLES = `
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 6px 9px;
-    border-radius: 6px;
-    background: #1c2433;
-    font: 11px/1.5 system-ui, sans-serif;
+    padding: 7px 10px;
+    border-radius: var(--r-sm);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--glass-border);
+    color: var(--label);
+    font: 11px/1.5 var(--sans);
     white-space: nowrap;
-    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.2);
+    box-shadow: var(--el-pop);
   }
-  .crumb-rel { color: #98a2b3; }
-  .crumb-tip .src-link { color: #e4e7ec; font-size: 10.5px; }
-  .crumb-tip .src-link:hover { color: #c4b5fd; }
+  .crumb-rel { color: var(--label-2); }
+  .crumb-tip .src-link { color: var(--accent); font-size: 10.5px; }
+  .crumb-tip .src-link:hover { text-decoration: underline; }
 
-  .panel-section h4 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #667085; }
-  .classes { display: flex; flex-wrap: wrap; gap: 4px; }
-  .class-chip { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; background: #f2f4f7; border: 1px solid #e2e5ec; border-radius: 4px; padding: 1px 6px; }
-  .class-chip.src-link:hover { border-color: #d6bbfb; background: #f9f5ff; }
-  .classes-empty { color: #98a2b3; }
+  .panel-section h4 { margin: 16px 0 10px; font-size: 13px; font-weight: 600; letter-spacing: 0; text-transform: none; font-family: var(--sans); color: var(--label-2); }
+  .classes { display: flex; flex-wrap: wrap; gap: 5px; }
+  .class-chip { font-family: var(--mono); font-size: 11px; color: var(--label); background: var(--fill-1); border: 0; border-radius: var(--r-full); padding: 3px 10px; }
+  .class-chip.src-link { gap: 4px; }
+  .class-chip.src-link:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); }
+  .classes-empty { color: var(--label-2); }
 
-  .actions { display: flex; gap: 8px; margin-top: 14px; }
-  .vscode { display: inline-block; padding: 6px 12px; border-radius: 6px; background: #1c2433; color: #fff; text-decoration: none; font-size: 12px; }
-  .vscode:hover { background: #323d52; }
-  .copy-context { padding: 6px 12px; border-radius: 6px; border: 1px solid #1c2433; background: #fff; color: #1c2433; font: 12px system-ui, sans-serif; cursor: pointer; }
-  .copy-context:hover { background: #eef1f6; }
+  .actions { display: flex; gap: 8px; margin-top: 16px; }
+  .vscode {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 18px; border-radius: var(--r-md);
+    background: var(--accent); color: var(--on-accent);
+    text-decoration: none; font: 600 14px var(--sans); cursor: pointer;
+    transition: box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+  }
+  .vscode::before {
+    content: ''; width: 17px; height: 17px; flex: none;
+    background: currentColor;
+    -webkit-mask: var(--ic-external) center / contain no-repeat;
+    mask: var(--ic-external) center / contain no-repeat;
+  }
+  .vscode:hover { box-shadow: inset 0 0 0 999px var(--hover-solid); }
+  .vscode:active { transform: scale(0.98); }
+  .copy-context {
+    display: inline-flex; align-items: center; gap: 8px;
+    height: 40px; padding: 0 18px; border-radius: var(--r-md);
+    border: 0; background: var(--fill-1); color: var(--label);
+    font: 600 14px var(--sans); cursor: pointer;
+    transition: box-shadow 0.15s var(--ease), transform 0.1s var(--ease);
+  }
+  .copy-context::before {
+    content: ''; width: 17px; height: 17px; flex: none;
+    background: currentColor;
+    -webkit-mask: var(--ic-copy) center / contain no-repeat;
+    mask: var(--ic-copy) center / contain no-repeat;
+  }
+  .copy-context:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); }
+  .copy-context:active { transform: scale(0.98); }
 
-  .rule { margin-bottom: 10px; padding: 8px 10px; border: 1px solid #e2e5ec; border-radius: 6px; }
-  .rule-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
-  .rule-sel { font-family: ui-monospace, Menlo, monospace; font-size: 12px; font-weight: 600; color: #1c2433; }
-  .rule-loc { font-family: ui-monospace, Menlo, monospace; font-size: 10px; color: #667085; text-decoration: none; white-space: nowrap; }
-  .rule-loc:hover { color: #7c3aed; text-decoration: underline; }
+  .rule { margin-bottom: 12px; border: 1px solid var(--separator); border-radius: var(--r-md); background: var(--surface-2); overflow: hidden; }
+  .rule-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 13px; border-bottom: 1px solid var(--separator); }
+  .rule-sel { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--label); }
+  .rule-loc { font-family: var(--mono); font-size: 11px; color: var(--label-2); text-decoration: none; white-space: nowrap; }
+  .rule-loc:hover { text-decoration: underline; }
 
-  .decl { margin: 3px 0; }
-  .decl-code { font-family: ui-monospace, Menlo, monospace; font-size: 11px; color: #334155; text-decoration: none; }
-  .decl--overridden .decl-code { text-decoration: line-through; color: #98a2b3; }
+  .decl { margin: 3px 0; padding: 0 13px; }
+  .rule-head + .decl { margin-top: 9px; }
+  .decl:last-child { margin-bottom: 9px; }
+  .decl-code { font-family: var(--mono); font-size: 12px; color: var(--label); text-decoration: none; }
+  .decl-code .src-link, .decl-code.src-link { color: var(--label); }
+  .decl--overridden .decl-code { text-decoration: line-through; color: var(--label-3); }
   .cascade-badge {
-    display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 999px;
-    font: 9.5px system-ui, sans-serif; line-height: 15px; vertical-align: 1px; white-space: nowrap;
+    display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: var(--r-xs);
+    font: 600 10px var(--mono); line-height: 1.5; vertical-align: 1px; white-space: nowrap;
   }
-  .cascade-badge--lose { background: #fef3f2; color: #b42318; border: 1px solid #fecdca; }
+  .cascade-badge--win { background: var(--win-bg); color: var(--win-text); }
+  .cascade-badge--lose { background: var(--danger-bg); color: var(--danger-text); }
 
   .note-card {
     position: fixed;
     z-index: 20;
     max-width: 320px;
-    padding: 8px 10px;
-    border: 1px solid #e2e5ec;
-    border-radius: 8px;
-    background: #fff;
-    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.16);
-    font: 11.5px/1.5 system-ui, sans-serif;
-    color: #475467;
+    padding: 12px 14px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--r-lg);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow: var(--el-pop);
+    font: 11.5px/1.5 var(--sans);
+    color: var(--label-2);
     pointer-events: auto;
   }
   .note-card--pinned {
     position: static;
     width: 100%;
     max-width: none;
-    margin: 3px 0 5px;
-    background: #fafbfc;
+    margin: 4px 0 6px;
+    background: var(--surface-2);
+    border-color: var(--separator);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
     box-shadow: none;
   }
   .note-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-  .note-text { font-style: italic; color: #667085; }
-  .note-pin { flex-shrink: 0; border: 0; background: none; padding: 0 2px; font-size: 10.5px; color: #98a2b3; cursor: pointer; }
-  .note-pin:hover { color: #7c3aed; }
+  .note-text { color: var(--label); }
+  .note-pin {
+    flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border: 0; border-radius: 50%;
+    background: none; color: var(--label-3); cursor: pointer; line-height: 0;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .note-pin:hover { background: var(--hover-soft); color: var(--label-2); }
+  .note-pin--on { color: var(--accent); }
+  .note-pin svg { width: 15px; height: 15px; }
   .note-card .token-chain { margin: 4px 0 0 12px; }
 
-  .token-chain { margin: 1px 0 3px 12px; font-family: ui-monospace, Menlo, monospace; font-size: 10.5px; color: #475467; }
-  .token-loc { color: #667085; }
-  .conflict { display: block; color: #b54708; font-family: system-ui, sans-serif; font-size: 11px; }
-  .styles-empty { color: #98a2b3; }
+  .token-chain { margin: 1px 0 3px 12px; font-family: var(--mono); font-size: 10.5px; color: var(--label-2); }
+  .token-loc { color: var(--label-2); }
+  .conflict { display: block; color: var(--danger-text); font-family: var(--sans); font-size: 11px; }
+  .styles-empty { color: var(--label-2); }
 
   .structure-layer { position: fixed; top: 0; left: 0; pointer-events: none; }
   .sbox { position: fixed; top: 0; left: 0; pointer-events: none; }
-  .sbox--margin { background: rgba(246, 178, 107, 0.28); }
-  .sbox--padding { background: rgba(130, 196, 157, 0.35); }
-  .sbox--content { border: 1px solid rgba(59, 130, 246, 0.85); }
-  .sbox--parent { border: 1.5px dashed #64748b; }
-  .sbox--sibling { border: 1px dotted #94a3b8; opacity: 0.7; }
-  .sbox--gap { background: rgba(168, 85, 247, 0.16); }
+  .sbox--margin { background: rgba(255, 149, 0, 0.24); }
+  .sbox--padding { background: rgba(52, 199, 89, 0.26); }
+  .sbox--content { border: 1px solid var(--accent); }
+  .sbox--parent { border: 1.5px dashed var(--label-3); }
+  .sbox--sibling { border: 1px dotted var(--label-3); opacity: 0.7; }
+  .sbox--gap { background: rgba(175, 82, 222, 0.20); }
   .slabel {
     position: fixed;
     top: 0;
     left: 0;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: #1c2433;
-    color: #fff;
-    font: 10px/1.5 ui-monospace, Menlo, monospace;
+    padding: 2px 7px;
+    border-radius: var(--r-xs);
+    background: var(--glass);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    border: 1px solid var(--glass-border);
+    color: var(--label);
+    font: 500 10px/1.5 var(--mono);
     white-space: nowrap;
+    box-shadow: var(--el-card);
   }
+  .slabel--margin { background: #E08600; border-color: transparent; color: #fff; }
+  .slabel--padding { background: #248A3D; border-color: transparent; color: #fff; }
+  .slabel--gap { background: #8E44C4; border-color: transparent; color: #fff; }
 
+  /* Structure: HIG filter pills */
   .structure-toggle {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px 10px;
+    gap: 8px;
     margin: 10px 0 2px;
-    font-size: 12px;
-    color: #4f5b76;
     user-select: none;
   }
-  .structure-label { color: #667085; }
-  .stype { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-  .stype--muted { opacity: 0.35; }
-  .stype input { accent-color: #7c3aed; margin: 0; width: 13px; height: 13px; }
-  .dot { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
-  .dot--margin { background: rgba(246, 178, 107, 0.9); }
-  .dot--padding { background: rgba(130, 196, 157, 0.95); }
-  .dot--gap { background: rgba(168, 85, 247, 0.45); }
+  .structure-label { font: 600 13px var(--sans); color: var(--label-2); margin-right: 2px; }
+  .schip {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 32px; padding: 0 14px;
+    border: 0; border-radius: var(--r-full);
+    background: var(--fill-1); color: var(--label-2);
+    font: 500 13px var(--sans); cursor: pointer;
+    transition: background 0.15s var(--ease), color 0.15s var(--ease);
+  }
+  .schip:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); }
+  .schip--on { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .schip--muted { opacity: 0.4; }
+  .schip .dot { opacity: 0.4; }
+  .schip--on .dot { opacity: 1; }
+  .dot { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+  .dot--margin { background: var(--rl-margin); }
+  .dot--padding { background: var(--rl-padding); }
+  .dot--gap { background: var(--rl-gap); }
 
   /* Item 3: collapsible breadcrumb */
   .crumbs-wrap { margin: 10px 0 2px; }
   .crumbs-toggle {
     display: inline-flex; align-items: center; gap: 6px;
-    border: 0; background: none; padding: 2px 3px; border-radius: 4px;
-    color: #4f5b76; font: inherit; cursor: pointer; max-width: 100%;
+    border: 0; background: none; padding: 2px 3px; border-radius: var(--r-xs);
+    color: var(--label-2); font: inherit; cursor: pointer; max-width: 100%;
   }
-  .crumbs-toggle:hover { background: #eef1f6; color: #1c2433; }
-  .crumbs-caret { color: #98a2b3; font-size: 10px; }
+  .crumbs-toggle:hover { box-shadow: inset 0 0 0 999px var(--hover-soft); color: var(--label); }
+  .crumbs-caret { display: inline-flex; color: var(--label-3); line-height: 0; transition: transform 0.2s var(--ease); }
+  .crumbs-toggle[aria-expanded="true"] .crumbs-caret { transform: rotate(90deg); }
   .crumbs-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Theme: segmented Auto · Light · Dark */
+  .theme-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; }
+  .theme-label { font: 600 13px var(--sans); color: var(--label-2); }
+  .theme-seg { display: inline-flex; gap: 2px; background: var(--fill-1); border-radius: 10px; padding: 2px; }
+  .theme-opt {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 0; background: transparent; color: var(--label-2);
+    border-radius: 8px; padding: 6px 11px; font: 500 12px var(--sans); cursor: pointer; line-height: 1;
+    transition: color 0.15s var(--ease);
+  }
+  .theme-opt svg { width: 14px; height: 14px; }
+  .theme-opt:hover { color: var(--label); }
+  .theme-opt--on { background: var(--surface); color: var(--label); font-weight: 600; box-shadow: var(--el-card); }
 
   /* Item 1: editor picker */
   .editor-row { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; }
   .editor-label {
     display: inline-flex; align-items: center; gap: 6px;
-    font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #667085;
+    font: 600 13px var(--sans); color: var(--label-2);
   }
   .editor-pick {
-    font: 12px system-ui, sans-serif; color: #1c2433;
-    padding: 3px 6px; border-radius: 5px; border: 1px solid #d0d5dd; background: #fff;
+    font: 13px var(--sans); color: var(--label);
+    padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid var(--separator); background: var(--surface-2);
     text-transform: none; letter-spacing: 0;
   }
   .editor-template {
-    font: 11px ui-monospace, Menlo, monospace; color: #1c2433;
-    padding: 5px 8px; border-radius: 5px; border: 1px solid #d0d5dd; background: #fff;
+    font: 12px var(--mono); color: var(--label);
+    padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid var(--separator); background: var(--surface-2);
   }
 
   /* Item 4: highlight declarations that drive an active structure annotation,
-     color-matched to that type's checkbox dot. */
-  .decl--hl { border-radius: 4px; }
-  .decl--hl[data-sgroup="margin"] { background: rgba(246, 178, 107, 0.16); box-shadow: inset 2px 0 0 rgba(246, 178, 107, 0.9); }
-  .decl--hl[data-sgroup="padding"] { background: rgba(130, 196, 157, 0.16); box-shadow: inset 2px 0 0 rgba(130, 196, 157, 0.95); }
-  .decl--hl[data-sgroup="gap"] { background: rgba(168, 85, 247, 0.12); box-shadow: inset 2px 0 0 rgba(168, 85, 247, 0.55); }
+     color-matched to that type's redline color. */
+  .decl--hl { border-radius: var(--r-xs); }
+  .decl--hl[data-sgroup="margin"] { background: var(--rl-margin-soft); box-shadow: inset 2px 0 0 var(--rl-margin); }
+  .decl--hl[data-sgroup="padding"] { background: var(--rl-padding-soft); box-shadow: inset 2px 0 0 var(--rl-padding); }
+  .decl--hl[data-sgroup="gap"] { background: var(--rl-gap-soft); box-shadow: inset 2px 0 0 var(--rl-gap); }
+
+  /* Focus rings (accessibility) — visible on light, dark and graphite. */
+  .keycap:focus-visible, .panel-close:focus-visible, .panel-drag:focus-visible,
+  .schip:focus-visible, .vscode:focus-visible, .copy-context:focus-visible,
+  .crumb:focus-visible, .crumbs-toggle:focus-visible, .src-link:focus-visible,
+  .editor-pick:focus-visible, .note-pin:focus-visible, .theme-opt:focus-visible {
+    outline: none; box-shadow: 0 0 0 4px var(--accent-soft), 0 0 0 1px var(--accent);
+  }
 `;
+
+// Thin-line pin glyph for the annotation pin/unpin control.
+const PIN_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4h6l-1 7 3 2.5v1.2H7v-1.2L10 11 9 4Z"/><path d="M12 15.7V21"/></svg>';
 
 // Editor jump targets. Templates use {root} {file} {line} {col} placeholders.
 // All are VS Code-family schemes. The trailing :{line}:{col} is required for
@@ -449,8 +642,15 @@ export function initIrisOverlay(config) {
     lsSet('iris:structure-types', [...structureTypes].join(','));
   }
 
+  // --- Theme: auto (follows the OS) or a persisted manual override ---------
+  const THEME_KEY = 'iris:theme';
+  const THEMES = ['auto', 'light', 'dark'];
+  let themeChoice = lsGet(THEME_KEY) || 'auto';
+  if (!THEMES.includes(themeChoice)) themeChoice = 'auto';
+
   const host = document.createElement('div');
   host.setAttribute('data-iris-overlay', '');
+  host.setAttribute('data-theme', themeChoice);
   host.style.cssText = 'position:fixed;top:0;left:0;z-index:2147483647;pointer-events:none;';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
@@ -459,30 +659,30 @@ export function initIrisOverlay(config) {
     <div class="box box--hover" hidden><span class="label"></span></div>
     <div class="box box--selected" hidden></div>
     <div class="badge" hidden>Iris — hover to highlight, click to lock, Esc to exit</div>
-    <button class="keycap" type="button" aria-label="Toggle inspect mode">I<span class="keycap-tip">Inspect — ⌥ + I</span></button>
+    <button class="keycap" type="button" aria-label="Toggle inspect mode"><span class="keycap-i">I</span><span class="keycap-tip">Inspect — ⌥ + I</span></button>
     <aside class="panel" hidden>
       <header class="panel-head">
-        <button class="panel-drag" type="button" title="Drag to move the panel" aria-label="Drag to move the panel">⠿</button>
+        <button class="panel-drag" type="button" title="Drag to move the panel" aria-label="Drag to move the panel"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg></button>
         <div class="panel-headings">
           <div class="panel-title"></div>
           <div class="panel-loc"></div>
         </div>
-        <button class="panel-close" type="button" title="Clear selection">✕</button>
+        <button class="panel-close" type="button" title="Clear selection" aria-label="Clear selection"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
       </header>
       <div class="panel-body">
       <div class="crumbs-wrap">
         <button class="crumbs-toggle" type="button" aria-expanded="false" title="Show breadcrumb path">
-          <span class="crumbs-caret">▸</span>
+          <span class="crumbs-caret"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></span>
           <span class="crumbs-summary"></span>
         </button>
         <nav class="crumbs" hidden></nav>
       </div>
       <div class="structure-toggle">
         <span class="structure-label">Structure</span>
-        <label class="stype stype--all"><input type="checkbox" class="stype-all" />all</label>
-        <label class="stype"><input type="checkbox" class="stype-input" data-type="margin" /><i class="dot dot--margin"></i>margin</label>
-        <label class="stype"><input type="checkbox" class="stype-input" data-type="padding" /><i class="dot dot--padding"></i>padding</label>
-        <label class="stype"><input type="checkbox" class="stype-input" data-type="gap" /><i class="dot dot--gap"></i>gap</label>
+        <button type="button" class="schip schip--all" data-all aria-pressed="false">all</button>
+        <button type="button" class="schip" data-type="margin" aria-pressed="false"><i class="dot dot--margin"></i>margin</button>
+        <button type="button" class="schip" data-type="padding" aria-pressed="false"><i class="dot dot--padding"></i>padding</button>
+        <button type="button" class="schip" data-type="gap" aria-pressed="false"><i class="dot dot--gap"></i>gap</button>
       </div>
       <section class="panel-section">
         <h4>Classes</h4>
@@ -504,6 +704,14 @@ export function initIrisOverlay(config) {
         <input class="editor-template" type="text" spellcheck="false"
           placeholder="myeditor://open?file={root}/{file}&line={line}&col={col}" hidden />
       </div>
+      <div class="theme-row">
+        <span class="theme-label">Theme</span>
+        <div class="theme-seg" role="group" aria-label="Theme">
+          <button type="button" class="theme-opt" data-theme-opt="auto" title="Match the system appearance"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" stroke="none"/></svg>Auto</button>
+          <button type="button" class="theme-opt" data-theme-opt="light" title="Always light"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.6v2.2M12 19.2v2.2M4.6 4.6l1.5 1.5M17.9 17.9l1.5 1.5M2.6 12h2.2M19.2 12h2.2M6.1 17.9l-1.5 1.5M19.4 4.6l-1.5 1.5"/></svg>Light</button>
+          <button type="button" class="theme-opt" data-theme-opt="dark" title="Always dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 13.2A8.4 8.4 0 1 1 10.8 3.5a6.6 6.6 0 0 0 9.7 9.7Z"/></svg>Dark</button>
+        </div>
+      </div>
       <div class="actions">
         <a class="vscode" href="#">Open in editor</a>
         <button class="copy-context" type="button">Copy AI context</button>
@@ -514,8 +722,8 @@ export function initIrisOverlay(config) {
   document.body.appendChild(host);
 
   const structureLayer = shadow.querySelector('.structure-layer');
-  const structureInputs = [...shadow.querySelectorAll('.stype-input')];
-  const structureAllInput = shadow.querySelector('.stype-all');
+  const structureChips = [...shadow.querySelectorAll('.schip[data-type]')];
+  const structureAllChip = shadow.querySelector('.schip[data-all]');
   const crumbsWrap = shadow.querySelector('.crumbs-wrap');
   const crumbsToggle = shadow.querySelector('.crumbs-toggle');
   const crumbsCaret = shadow.querySelector('.crumbs-caret');
@@ -535,8 +743,28 @@ export function initIrisOverlay(config) {
   const stylesBox = shadow.querySelector('.styles');
   const vscodeLink = shadow.querySelector('.vscode');
   const copyButton = shadow.querySelector('.copy-context');
+  const themeOpts = [...shadow.querySelectorAll('.theme-opt')];
 
   copyButton.addEventListener('click', onCopyContext);
+
+  // Theme toggle: write the choice to the host attribute (CSS does the rest)
+  // and persist it. 'auto' lets the prefers-color-scheme media query decide.
+  function applyTheme() {
+    host.setAttribute('data-theme', themeChoice);
+    for (const opt of themeOpts) {
+      const on = opt.dataset.themeOpt === themeChoice;
+      opt.classList.toggle('theme-opt--on', on);
+      opt.setAttribute('aria-pressed', String(on));
+    }
+  }
+  for (const opt of themeOpts) {
+    opt.addEventListener('click', () => {
+      themeChoice = opt.dataset.themeOpt;
+      lsSet(THEME_KEY, themeChoice);
+      applyTheme();
+    });
+  }
+  applyTheme();
 
   shadow.querySelector('.panel-close').addEventListener('click', () => {
     selectedEl = null;
@@ -565,8 +793,9 @@ export function initIrisOverlay(config) {
     head.className = 'note-head';
     const pinButton = document.createElement('button');
     pinButton.type = 'button';
-    pinButton.className = 'note-pin';
-    pinButton.textContent = pinned ? 'unpin ✕' : 'pin 📌';
+    pinButton.className = pinned ? 'note-pin note-pin--on' : 'note-pin';
+    pinButton.innerHTML = PIN_SVG;
+    pinButton.setAttribute('aria-label', pinned ? 'Unpin explanation' : 'Pin explanation');
     pinButton.title = pinned ? 'Hide this explanation again' : 'Keep this explanation visible';
     pinButton.addEventListener('click', () => togglePin(row));
     head.append(span('note-text', data.note), pinButton);
@@ -788,32 +1017,33 @@ export function initIrisOverlay(config) {
   panelDragHandle.addEventListener('pointerup', endPanelDrag);
   panelDragHandle.addEventListener('pointercancel', endPanelDrag);
 
-  // Item 4: per-type structure toggles. Each drives one annotation kind and
-  // highlights the matching declaration rows in the Styles panel.
-  // "all" is a master toggle that checks/clears every type at once.
+  // Item 4: per-type structure filter chips. Each drives one annotation kind
+  // and highlights the matching declaration rows. "all" toggles every type.
   function syncStructureUI() {
-    for (const input of structureInputs) {
-      input.checked = structureTypes.has(input.dataset.type);
+    for (const chip of structureChips) {
+      const on = structureTypes.has(chip.dataset.type);
+      chip.classList.toggle('schip--on', on);
+      chip.setAttribute('aria-pressed', String(on));
     }
-    structureAllInput.checked = structureTypes.size === structureInputs.length;
-    structureAllInput.indeterminate =
-      structureTypes.size > 0 && structureTypes.size < structureInputs.length;
+    const all = structureTypes.size === structureChips.length;
+    structureAllChip.classList.toggle('schip--on', all);
+    structureAllChip.setAttribute('aria-pressed', String(all));
   }
-  for (const input of structureInputs) {
-    input.addEventListener('change', () => {
-      if (input.checked) structureTypes.add(input.dataset.type);
-      else structureTypes.delete(input.dataset.type);
+  for (const chip of structureChips) {
+    chip.addEventListener('click', () => {
+      const type = chip.dataset.type;
+      if (structureTypes.has(type)) structureTypes.delete(type);
+      else structureTypes.add(type);
       saveStructureTypes();
       syncStructureUI();
       applyStructureHighlight();
       scheduleRender();
     });
   }
-  structureAllInput.addEventListener('change', () => {
+  structureAllChip.addEventListener('click', () => {
+    const turnOn = structureTypes.size !== structureChips.length;
     structureTypes.clear();
-    if (structureAllInput.checked) {
-      for (const input of structureInputs) structureTypes.add(input.dataset.type);
-    }
+    if (turnOn) for (const chip of structureChips) structureTypes.add(chip.dataset.type);
     saveStructureTypes();
     syncStructureUI();
     applyStructureHighlight();
@@ -826,7 +1056,7 @@ export function initIrisOverlay(config) {
   function applyCrumbsExpanded() {
     crumbsNav.hidden = !crumbsExpanded;
     crumbsToggle.setAttribute('aria-expanded', String(crumbsExpanded));
-    crumbsCaret.textContent = crumbsExpanded ? '▾' : '▸';
+    // The caret is an SVG chevron; CSS rotates it from aria-expanded.
   }
   crumbsToggle.addEventListener('click', () => {
     crumbsExpanded = !crumbsExpanded;
@@ -968,9 +1198,9 @@ export function initIrisOverlay(config) {
 
   // Places a label centered on (cx, cy); when it would overlap an already
   // placed label, it stacks downward until it finds a free spot.
-  function placeLabel(placed, text, cx, cy) {
+  function placeLabel(placed, text, cx, cy, kind) {
     const label = document.createElement('span');
-    label.className = 'slabel';
+    label.className = kind ? `slabel slabel--${kind}` : 'slabel';
     label.textContent = String(text);
     structureLayer.appendChild(label);
     const w = label.offsetWidth;
@@ -1032,11 +1262,10 @@ export function initIrisOverlay(config) {
 
   function updateStructureApplicability(el) {
     const applies = structureApplicability(el);
-    for (const input of structureInputs) {
-      const label = input.closest('.stype');
-      const ok = applies[input.dataset.type];
-      label.classList.toggle('stype--muted', !ok);
-      label.title = ok ? '' : `No ${input.dataset.type} on this element`;
+    for (const chip of structureChips) {
+      const ok = applies[chip.dataset.type];
+      chip.classList.toggle('schip--muted', !ok);
+      chip.title = ok ? '' : `No ${chip.dataset.type} on this element`;
     }
   }
 
@@ -1099,16 +1328,16 @@ export function initIrisOverlay(config) {
 
     // Numeric labels for every visible margin/padding side.
     if (showMargin) {
-      if (mt > 1) placeLabel(placed, Math.round(mt), rect.left + rect.width / 2, rect.top - mt / 2);
-      if (mb > 1) placeLabel(placed, Math.round(mb), rect.left + rect.width / 2, rect.bottom + mb / 2);
-      if (ml > 1) placeLabel(placed, Math.round(ml), rect.left - ml / 2, rect.top + rect.height / 2);
-      if (mr > 1) placeLabel(placed, Math.round(mr), rect.right + mr / 2, rect.top + rect.height / 2);
+      if (mt > 1) placeLabel(placed, Math.round(mt), rect.left + rect.width / 2, rect.top - mt / 2, 'margin');
+      if (mb > 1) placeLabel(placed, Math.round(mb), rect.left + rect.width / 2, rect.bottom + mb / 2, 'margin');
+      if (ml > 1) placeLabel(placed, Math.round(ml), rect.left - ml / 2, rect.top + rect.height / 2, 'margin');
+      if (mr > 1) placeLabel(placed, Math.round(mr), rect.right + mr / 2, rect.top + rect.height / 2, 'margin');
     }
     if (showPadding) {
-      if (pt > 1) placeLabel(placed, Math.round(pt), rect.left + rect.width / 2, rect.top + pt / 2);
-      if (pb > 1) placeLabel(placed, Math.round(pb), rect.left + rect.width / 2, rect.bottom - pb / 2);
-      if (pl > 1) placeLabel(placed, Math.round(pl), rect.left + pl / 2, rect.top + rect.height / 2);
-      if (pr > 1) placeLabel(placed, Math.round(pr), rect.right - pr / 2, rect.top + rect.height / 2);
+      if (pt > 1) placeLabel(placed, Math.round(pt), rect.left + rect.width / 2, rect.top + pt / 2, 'padding');
+      if (pb > 1) placeLabel(placed, Math.round(pb), rect.left + rect.width / 2, rect.bottom - pb / 2, 'padding');
+      if (pl > 1) placeLabel(placed, Math.round(pl), rect.left + pl / 2, rect.top + rect.height / 2, 'padding');
+      if (pr > 1) placeLabel(placed, Math.round(pr), rect.right - pr / 2, rect.top + rect.height / 2, 'padding');
     }
 
     // Gap framing only shows with the gap toggle on.
@@ -1135,11 +1364,11 @@ export function initIrisOverlay(config) {
         if (colGap && rb.left - ra.right > 1 && vBottom - vTop > 4) {
           const width = rb.left - ra.right;
           add(structureBox('sbox--gap', ra.right, vTop, width, vBottom - vTop));
-          placeLabel(placed, Math.round(width), ra.right + width / 2, (vTop + vBottom) / 2);
+          placeLabel(placed, Math.round(width), ra.right + width / 2, (vTop + vBottom) / 2, 'gap');
         } else if (rowGap && rb.top - ra.bottom > 1 && hRight - hLeft > 4) {
           const height = rb.top - ra.bottom;
           add(structureBox('sbox--gap', hLeft, ra.bottom, hRight - hLeft, height));
-          placeLabel(placed, Math.round(height), (hLeft + hRight) / 2, ra.bottom + height / 2);
+          placeLabel(placed, Math.round(height), (hLeft + hRight) / 2, ra.bottom + height / 2, 'gap');
         }
       }
     };
@@ -1400,12 +1629,15 @@ export function initIrisOverlay(config) {
       code.textContent = `${decl.prop}: ${decl.value}${decl.important ? ' !important' : ''};`;
       row.append(code);
 
-      // Priority: when more than one matched rule sets this property, mark only
-      // the losers — kept short ("overridden by <selector>") for readability.
-      // The winner needs no badge; it's the effective value.
+      // Priority: when more than one matched rule sets this property, tag the
+      // winner (with the reason it won) and each loser (with what beat it).
       const c = decl.cascade;
-      if (c && c.contested && !c.winner) {
-        row.append(cascadeBadge('lose', `overridden by ${c.winnerSelector}`));
+      if (c && c.contested) {
+        row.append(
+          c.winner
+            ? cascadeBadge('win', `WINS · ${c.reason}`)
+            : cascadeBadge('lose', `overridden by ${c.winnerSelector}`),
+        );
       }
 
       // Rule B: the explanation and token chains are hover-revealed, not
