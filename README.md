@@ -29,14 +29,27 @@ Iris is not on npm yet — install it straight from this repo.
 npm install -D /path/to/iris/packages/inspector
 ```
 
-Then add it to `vite.config.js` / `vite.config.mjs` (first in the list, before other plugins):
+Then add it to `vite.config.js` / `vite.config.mjs`. **Load it lazily, only for the dev server** — this keeps iris completely out of your production build and deploys (see [Deploying with iris installed](#deploying-with-iris-installed) below for why this matters):
 
 ```js
-import iris from 'vite-plugin-iris';
+import { defineConfig } from 'vite';
 
-export default {
-  plugins: [iris() /*, react(), ... */],
-};
+export default defineConfig(async ({ command }) => {
+  const plugins = [/* react(), ... */];
+
+  // Iris is a dev-only inspector. Load it only when serving, and tolerate it
+  // being absent (e.g. on a CI/Vercel build) so production is never affected.
+  if (command === 'serve') {
+    try {
+      const iris = (await import('vite-plugin-iris')).default;
+      plugins.unshift(iris()); // keep it first, before other plugins
+    } catch {
+      // iris not installed here — that's fine, it's optional.
+    }
+  }
+
+  return { plugins };
+});
 ```
 
 Run your dev server as usual and press `⌥ + I` (or click the keycap in the top-right corner).
@@ -62,11 +75,17 @@ npm install -D /path/to/iris/packages/inspector
 Create `vite.config.mjs` next to your `index.html`:
 
 ```js
-import iris from 'vite-plugin-iris';
+import { defineConfig } from 'vite';
 
-export default {
-  plugins: [iris()],
-};
+export default defineConfig(async ({ command }) => {
+  const plugins = [];
+  if (command === 'serve') {
+    try {
+      plugins.push((await import('vite-plugin-iris')).default());
+    } catch {}
+  }
+  return { plugins };
+});
 ```
 
 Then serve with `npx vite` and open the printed URL. All `.html` pages are tagged automatically; your files and deployment are untouched.
@@ -76,6 +95,23 @@ Then serve with `npx vite` and open the printed URL. All `.html` pages are tagge
 1. `vite.config.mjs` must be in the **same folder you run `npx vite` from** (next to `index.html`).
 2. Make sure the browser tab is the **Vite URL** (e.g. `localhost:5173`), not an old server or a `file://` page.
 3. View page source: you should see `<script type="module" src="/@iris/overlay">` near `</body>`. If it's missing, the plugin didn't load — restart the dev server.
+
+## Deploying with iris installed
+
+Iris's plugin is dev-only (`apply: 'serve'`), so it never runs during `vite build` and your production bundle is byte-for-byte unaffected. The thing that *can* break a deploy (Vercel, Netlify, CI) is the **install/config step**, for two reasons:
+
+1. **iris isn't on npm.** You installed it from a local path, which exists on your machine but not on the build server — so a clean `npm install` there fails before the build even starts. (Build hosts install `devDependencies` too, so putting it there doesn't help.)
+2. **A top-level `import iris from 'vite-plugin-iris'` runs during build.** `apply: 'serve'` stops the plugin's *work*, but the import line still needs the module to exist.
+
+The lazy `command === 'serve'` + `try/catch` pattern shown above fixes #2 — the build never imports iris. To also stop #1 from failing `npm install`, list iris as an **optional** dependency so the host skips it (with a warning, not an error) when the local path is missing:
+
+```json
+"optionalDependencies": {
+  "vite-plugin-iris": "file:/path/to/iris/packages/inspector"
+}
+```
+
+With both in place, iris stays committed in your repo and works in `npm run dev`, while being completely invisible to production builds — no import, no install failure, no bundle impact.
 
 ## Using the inspector
 

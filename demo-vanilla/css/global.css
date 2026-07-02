@@ -1,29 +1,88 @@
 :root {
-  --color-primary: #0e7490;
-  --color-text: #1f2937;
-  --color-muted: #6b7280;
-  --color-surface: #ffffff;
-  --color-background: #f4f4f5;
-  --radius-md: 10px;
+  /* Cool teal — overridden by legacy.css, so this value never paints.
+     Kept different on purpose: it's the "losing" side of the token conflict. */
+  --color-primary: #0f766e;
+
+  /* Warm stone neutrals — one gray family, tinted consistently. */
+  --color-text: #1c1917;
+  --color-muted: #78716c;
+  --color-surface: #fffefb;
+  --color-background: #f5f2ec;
+  --color-line: #e7e1d6;
+
+  --radius-sm: 7px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --space-xs: 4px;
   --space-sm: 8px;
   --space-md: 16px;
   --space-lg: 32px;
+  --space-xl: 64px;
+
+  /* Warm-tinted, layered shadow — single light source from above. */
+  --shadow-sm: 0 1px 2px rgb(40 30 20 / 0.05);
+  --shadow-md: 0 1px 2px rgb(40 30 20 / 0.04), 0 8px 24px -10px rgb(40 30 20 / 0.14);
+
+  --font-sans: "Geist", -apple-system, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Roboto Mono", monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   margin: 0;
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
   color: var(--color-text);
-  background: var(--color-background);
+  /* Warm ambient glow top-right breaks the flat fill. */
+  background:
+    radial-gradient(110% 70% at 85% -15%, rgb(184 71 42 / 0.1), transparent 55%),
+    var(--color-background);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Fixed grain overlay — subtle texture so surfaces don't read as sterile flat fills. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 .page {
-  max-width: 960px;
+  position: relative;
+  z-index: 1;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: var(--space-lg) var(--space-md);
+  padding: var(--space-xl) var(--space-md) calc(var(--space-xl) * 1.5);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

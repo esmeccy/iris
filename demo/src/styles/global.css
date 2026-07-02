@@ -1,29 +1,182 @@
 :root {
-  --color-primary: #4f46e5;
-  --color-text: #1f2937;
-  --color-muted: #6b7280;
-  --color-surface: #ffffff;
-  --color-background: #f4f4f5;
-  --radius-md: 10px;
-  --space-sm: 8px;
-  --space-md: 16px;
-  --space-lg: 32px;
+  /* Pale green — overridden by legacy.css, so this value never paints.
+     Kept different on purpose: the "losing" side of the token conflict
+     that Iris detects (--color-primary defined in two files). */
+  --color-primary: #346538;
+
+  /* Warm monochrome ink — never pure black */
+  --ink: #1f2023;
+  --text: #2f3437;
+  --muted: #787774;
+  --faint: #9b9a96;
+
+  --canvas: #fbfbfa;
+  --surface: #ffffff;
+  --surface-2: #f7f6f3;
+  --border: #eaeaea;
+  --border-soft: rgba(0, 0, 0, 0.06);
+
+  /* Spot pastels — color is scarce, used only for tags and small accents */
+  --pale-red-bg: #fdebec;
+  --pale-red-fg: #9f2f2d;
+  --pale-blue-bg: #e1f3fe;
+  --pale-blue-fg: #1f6c9f;
+  --pale-green-bg: #edf3ec;
+  --pale-green-fg: #346538;
+  --pale-yellow-bg: #fbf3db;
+  --pale-yellow-fg: #956400;
+
+  --r-sm: 4px;
+  --r: 8px;
+  --r-lg: 12px;
+  --r-pill: 9999px;
+
+  --space-xs: 6px;
+  --space-sm: 10px;
+  --space-md: 18px;
+  --space-lg: 28px;
+  --space-xl: 48px;
+  --space-2xl: 96px;
+
+  /* The only shadow: ultra-diffuse, < 0.05 opacity */
+  --shadow-flat: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  --font-sans: "Geist", "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+  --font-serif: "Instrument Serif", "Newsreader", "Playfair Display", Georgia, serif;
+  --font-mono: "Geist Mono", "SF Mono", "JetBrains Mono", monospace;
 }
 
 * {
   box-sizing: border-box;
 }
 
-body {
-  margin: 0;
-  font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  color: var(--color-text);
-  background: var(--color-background);
+html {
+  scroll-behavior: smooth;
 }
 
-.page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: var(--space-lg) var(--space-md);
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Warm radial light spots + faint grain — depth without breaking the calm. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(50% 40% at 18% 0%, rgba(149, 100, 0, 0.04), transparent 70%),
+    radial-gradient(45% 45% at 92% 12%, rgba(31, 108, 159, 0.035), transparent 72%);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.02;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+h1,
+h2,
+h3 {
+  color: var(--ink);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+a {
+  color: inherit;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  box-shadow: inset 0 -1.5px 0 var(--border);
+  padding: 4px 7px;
+}
+
+.shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 44px);
+}
+
+.kicker {
+  margin: 0 0 var(--space-md);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+/* Scroll-entry reveal — gated behind a JS-added class so content is never
+   hidden if scripts fail. IntersectionObserver adds .is-visible. */
+.reveal-ready [data-reveal] {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 600ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 600ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: calc(var(--i, 0) * 80ms);
+}
+
+.reveal-ready [data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .reveal-ready [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

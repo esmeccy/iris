@@ -1,14 +1,17 @@
 /* Deliberately redefines --color-primary with a different value than
    global.css — the token-conflict test scenario. Linked last in index.html,
-   so this value wins by load order. */
+   so this warm clay value wins by load order (the teal in global.css never paints). */
 :root {
-  --color-primary: #b45309;
+  --color-primary: #b8472a;
 }
 
 .legacy-accent {
   border: 1px dashed var(--color-primary);
 }
 
+/* Marks cards created at runtime — they can't be statically traced, so the
+   dashed accent is a visual cue that this one came from main.js. */
 .card--dynamic {
-  outline: 2px dotted var(--color-muted);
+  outline: 1px dashed color-mix(in srgb, var(--color-muted) 60%, transparent);
+  outline-offset: -1px;
 }

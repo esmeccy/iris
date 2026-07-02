@@ -70,7 +70,6 @@ const STYLES = `
     :host([data-theme="auto"]) {${DARK}  }
   }
 
-  @keyframes irisPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.8); } }
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
 
   * { box-sizing: border-box; }
@@ -110,32 +109,6 @@ const STYLES = `
     bottom: auto;
     top: 100%;
     margin: 5px 0 0;
-  }
-
-  /* Mode hint — frosted-glass pill with an accent pulse dot. */
-  .badge {
-    position: fixed;
-    left: 16px;
-    bottom: 16px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    border-radius: var(--r-full);
-    background: var(--glass);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
-    border: 1px solid var(--glass-border);
-    color: var(--label);
-    font: 12px/1.4 var(--sans);
-    box-shadow: var(--el-pop);
-  }
-  .badge::before {
-    content: '';
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: var(--accent);
-    animation: irisPulse 1.6s ease-in-out infinite;
   }
 
   /* Entry keycap — a frosted-glass squircle (floating chrome). */
@@ -658,7 +631,6 @@ export function initIrisOverlay(config) {
     <div class="structure-layer"></div>
     <div class="box box--hover" hidden><span class="label"></span></div>
     <div class="box box--selected" hidden></div>
-    <div class="badge" hidden>Iris — hover to highlight, click to lock, Esc to exit</div>
     <button class="keycap" type="button" aria-label="Toggle inspect mode"><span class="keycap-i">I</span><span class="keycap-tip">Inspect — ⌥ + I</span></button>
     <aside class="panel" hidden>
       <header class="panel-head">
@@ -733,7 +705,6 @@ export function initIrisOverlay(config) {
   const hoverBox = shadow.querySelector('.box--hover');
   const hoverLabel = shadow.querySelector('.label');
   const selectedBox = shadow.querySelector('.box--selected');
-  const badge = shadow.querySelector('.badge');
   const panel = shadow.querySelector('.panel');
   const panelDragHandle = shadow.querySelector('.panel-drag');
   const panelTitle = shadow.querySelector('.panel-title');
@@ -1894,7 +1865,6 @@ export function initIrisOverlay(config) {
       document.addEventListener('click', onClick, true);
       window.addEventListener('scroll', onViewportChange, { capture: true, passive: true });
       window.addEventListener('resize', onViewportChange);
-      badge.hidden = false;
     } else {
       document.removeEventListener('mousemove', onMouseMove, true);
       document.removeEventListener('click', onClick, true);
@@ -1904,7 +1874,6 @@ export function initIrisOverlay(config) {
       selectedEl = null;
       // Per-type toggles persist across sessions; just clear the on-page layer.
       structureLayer.replaceChildren();
-      badge.hidden = true;
       panel.hidden = true;
       hoverBox.hidden = true;
       selectedBox.hidden = true;

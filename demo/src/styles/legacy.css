@@ -1,10 +1,13 @@
 /* Deliberately redefines --color-primary with a different value than
-   global.css — the token-conflict test scenario for Step 3. This file is
-   imported last in main.jsx, so this value wins by load order. */
+   global.css — the token-conflict test scenario. This file is imported last
+   in main.jsx, so this value wins by load order (the green in global.css
+   never paints). Iris flags the two definitions and shows which is in effect. */
 :root {
-  --color-primary: #d946ef;
+  --color-primary: #1f6c9f;
 }
 
+/* A quiet 1px accent that consumes the conflicted token, so token-conflict
+   detection has a live usage to point at. */
 .legacy-accent {
-  border: 1px dashed var(--color-primary);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 30%, transparent);
 }
